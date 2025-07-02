@@ -1,0 +1,36 @@
+# Telegram Bot
+python-telegram-bot==20.7
+telegram==0.0.1
+
+# Async HTTP Client
+aiohttp==3.9.1
+aiofiles==23.2.0
+
+# Environment Variables
+python-dotenv==1.0.0
+
+# JSON Handling
+ujson==5.8.0
+
+# Crypto and Encoding
+cryptography==41.0.8
+base58==2.1.1
+
+# Date and Time
+python-dateutil==2.8.2
+pytz==2023.3
+
+# HTTP Requests
+requests==2.31.0
+
+# Logging
+colorlog==6.8.0
+
+# TRON Blockchain (Optional - for advanced address conversion)
+tronpy==0.4.0
+
+# Validation
+validators==0.22.0
+
+# Utility
+pydantic==2.5.0
