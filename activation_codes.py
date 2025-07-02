@@ -52,7 +52,7 @@ class ActivationCodeManager:
         """生成隨機激活碼"""
         # 使用字母和數字，避免容易混淆的字符
         chars = string.ascii_uppercase + string.digits
-        chars = chars.replace('0', '').replace('O', '').replace('I', '').replace('1')
+        chars = chars.replace('0', '').replace('O', '').replace('I', '').replace('1', '')
         
         code = ''.join(random.choices(chars, k=self.config.ACTIVATION_CODE_LENGTH))
         

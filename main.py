@@ -368,7 +368,10 @@ class TGMarketingBot:
 
 📞 **客服支持**: @your_support_username
 """
-        await update.message.reply_text(help_text, parse_mode='Markdown')
+        if update.message:
+            await update.message.reply_text(help_text, parse_mode='Markdown')
+        else:
+            await update.callback_query.edit_message_text(help_text, parse_mode='Markdown')
     
     async def admin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """處理 /admin 命令"""
