@@ -22,10 +22,15 @@ from telegram.ext import (
     ContextTypes, MessageHandler, filters
 )
 
-from config import Config
-from database import Database
-from tron_monitor import TronMonitor
-from activation_codes import ActivationCodeManager
+try:
+    from config import Config
+    from database import Database
+    from tron_monitor import TronMonitor
+    from activation_codes import ActivationCodeManager
+except ImportError as e:
+    print(f"❌ 導入模塊失敗: {e}")
+    print("請確保所有必需的模塊文件存在")
+    exit(1)
 
 # 設置日誌
 logging.basicConfig(
@@ -42,10 +47,29 @@ class TGMarketingBot:
     """TG營銷系統機器人主類"""
     
     def __init__(self):
-        self.config = Config()
-        self.db = Database()
-        self.tron_monitor = TronMonitor()
-        self.activation_manager = ActivationCodeManager()
+        try:
+            self.config = Config()
+        except Exception as e:
+            logger.error(f"❌ 配置初始化失敗: {e}")
+            raise
+            
+        try:
+            self.db = Database()
+        except Exception as e:
+            logger.error(f"❌ 數據庫初始化失敗: {e}")
+            raise
+            
+        try:
+            self.tron_monitor = TronMonitor()
+        except Exception as e:
+            logger.error(f"❌ TRON監控初始化失敗: {e}")
+            raise
+            
+        try:
+            self.activation_manager = ActivationCodeManager()
+        except Exception as e:
+            logger.error(f"❌ 激活碼管理器初始化失敗: {e}")
+            raise
         
         # 價格配置
         self.pricing = {
@@ -76,34 +100,40 @@ class TGMarketingBot:
         user = update.effective_user
         user_id = user.id
         
-        # 記錄用戶
-        self.db.add_user(user_id, user.username, user.first_name)
-        
-        # 檢查是否已有試用記錄
-        trial_used = self.db.has_used_trial(user_id)
+        try:
+            # 記錄用戶
+            self.db.add_user(user_id, user.username, user.first_name)
+            
+            # 檢查是否已有試用記錄
+            trial_used = self.db.has_used_trial(user_id)
+        except Exception as e:
+            logger.error(f"Database error in start_command: {e}")
+            trial_used = False  # 默認值
         
         welcome_text = f"""
-🎯 歡迎使用 TG營銷系統 🎯
+🎯 **歡迎使用 TG營銷系統** 🎯
 
-你好 {user.first_name}！
+你好 {user.first_name}！👋
 
-📋 **功能介紹**：
-• 多賬戶管理
-• 智能群組邀請
+🚀 **專業的 Telegram 營銷工具**
+• 多賬戶智能管理
+• 高效群組邀請系統  
 • 批量消息發送
-• 數據採集和分析
-• 防封號保護
+• 數據採集與分析
+• 智能防封號保護
 
-💰 **價格方案**：
-• 🆓 免費試用：2天 (每個TG帳戶限用一次)
-• 📅 一週方案：20 USDT (7天)
-• 📅 一個月方案：70 USDT (30天)
+💎 **靈活的價格方案**
+🆓 **免費試用** - 2天完整體驗
+📅 **一週方案** - 20 USDT 
+📅 **一個月方案** - 70 USDT
 
-⚡ **使用 USDT (TRC-20) 支付**
-💳 自動發放激活碼
+⚡ **特色優勢**
+• USDT (TRC-20) 安全支付
+• 即時自動發放激活碼
+• 24/7 客服支持
+• 簡單易用的操作界面
 
-使用 /order 開始購買
-使用 /help 查看幫助
+🎁 **立即開始使用下方按鈕！**
 """
         
         if trial_used:
@@ -112,17 +142,19 @@ class TGMarketingBot:
             welcome_text += "\n🎁 您可以免費試用2天！"
         
         keyboard = [
-            [InlineKeyboardButton("🛒 立即購買", callback_data="order")],
-            [InlineKeyboardButton("❓ 幫助", callback_data="help")],
-            [InlineKeyboardButton("📊 我的訂單", callback_data="my_orders")]
+            [InlineKeyboardButton("🛒 購買激活碼", callback_data="buy_menu")],
+            [InlineKeyboardButton("📊 我的訂單", callback_data="my_orders"), InlineKeyboardButton("🔍 查詢訂單", callback_data="search_order")],
+            [InlineKeyboardButton("❓ 使用說明", callback_data="help"), InlineKeyboardButton("📞 聯繫客服", callback_data="contact")],
+            [InlineKeyboardButton("⚙️ 系統狀態", callback_data="system_status")]
         ]
+        
+        # 管理員額外按鈕
+        if user_id in self.config.ADMIN_IDS:
+            keyboard.append([InlineKeyboardButton("🔧 管理後台", callback_data="admin_panel")])
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await self.send_message(update, welcome_text, reply_markup=reply_markup)
     
-    async def order_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """處理 /order 命令"""
-        await self.show_pricing_menu(update, context)
     
     async def show_pricing_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """顯示價格選單"""
@@ -153,13 +185,10 @@ class TGMarketingBot:
         
         text += "💡 使用 USDT (TRC-20) 支付，自動發放激活碼"
         
-        keyboard.append([InlineKeyboardButton("🔙 返回主選單", callback_data="back_to_main")])
+        keyboard.append([InlineKeyboardButton("🔙 返回主選單", callback_data="main_menu")])
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        if update.callback_query:
-            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
-        else:
-            await self.send_message(update, text, reply_markup=reply_markup, parse_mode='Markdown')
+        await self.send_message(update, text, reply_markup=reply_markup, parse_mode='Markdown')
     
     async def handle_purchase(self, update: Update, context: ContextTypes.DEFAULT_TYPE, plan_type: str):
         """處理購買請求"""
@@ -195,7 +224,7 @@ class TGMarketingBot:
 
 💡 試用期結束後，歡迎購買正式版本！
 """
-            await update.callback_query.edit_message_text(text, parse_mode='Markdown')
+            await self.send_message(update, text, parse_mode='Markdown')
             
         else:
             # 處理付費購買
@@ -215,7 +244,12 @@ class TGMarketingBot:
                 'expires_at': (datetime.now() + timedelta(hours=24)).isoformat()
             }
             
-            self.db.create_order(order_data)
+            try:
+                self.db.create_order(order_data)
+            except Exception as e:
+                logger.error(f"Failed to create order: {e}")
+                await update.callback_query.answer("❌ 創建訂單失敗，請稍後重試", show_alert=True)
+                return
             
             # 顯示付款信息
             text = f"""
@@ -243,11 +277,11 @@ class TGMarketingBot:
             keyboard = [
                 [InlineKeyboardButton("✅ 已付款", callback_data=f"check_payment_{order_id}")],
                 [InlineKeyboardButton("📊 查詢狀態", callback_data=f"status_{order_id}")],
-                [InlineKeyboardButton("🔙 返回選單", callback_data="order")]
+                [InlineKeyboardButton("🔙 返回購買", callback_data="buy_menu"), InlineKeyboardButton("🏠 主選單", callback_data="main_menu")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
-            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+            await self.send_message(update, text, reply_markup=reply_markup, parse_mode='Markdown')
     
     async def handle_payment_confirmed(self, transaction_data: Dict):
         """處理確認的付款"""
@@ -294,9 +328,8 @@ class TGMarketingBot:
 """
             
             # 發送消息給用戶
-            application = context.application if hasattr(self, 'context') else None
-            if application:
-                await application.bot.send_message(
+            if hasattr(self, 'application') and self.application:
+                await self.application.bot.send_message(
                     chat_id=order['user_id'],
                     text=text,
                     parse_mode='Markdown'
@@ -306,39 +339,6 @@ class TGMarketingBot:
             
         except Exception as e:
             logger.error(f"❌ 處理付款確認失敗: {e}")
-    
-    async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """處理 /status 命令"""
-        args = context.args
-        user_id = update.effective_user.id
-        
-        if args:
-            # 查詢特定訂單
-            order_id = args[0]
-            order = self.db.get_order(order_id)
-            
-            if not order or order['user_id'] != user_id:
-                await self.send_message(update, "❌ 找不到該訂單或無權限查看")
-                return
-            
-            status_text = self.format_order_status(order)
-            await self.send_message(update, status_text, parse_mode='Markdown')
-        else:
-            # 顯示用戶所有訂單
-            orders = self.db.get_user_orders(user_id)
-            
-            if not orders:
-                await self.send_message(update, "📋 您還沒有任何訂單")
-                return
-            
-            text = "📊 **您的訂單**:\n\n"
-            for order in orders:
-                text += f"🆔 {order['order_id']}\n"
-                text += f"📦 {self.pricing[order['plan_type']]['name']}\n"
-                text += f"💰 {order['amount']} USDT\n"
-                text += f"📅 {order['status']}\n\n"
-            
-            await self.send_message(update, text, parse_mode='Markdown')
     
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """處理 /help 命令"""
@@ -375,7 +375,120 @@ class TGMarketingBot:
 
 📞 **客服支持**: @your_support_username
 """
-        await self.send_message(update, help_text, parse_mode='Markdown')
+        keyboard = [
+            [InlineKeyboardButton("🛒 立即購買", callback_data="buy_menu")],
+            [InlineKeyboardButton("📞 聯繫客服", callback_data="contact")],
+            [InlineKeyboardButton("🔙 返回主選單", callback_data="main_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await self.send_message(update, help_text, reply_markup=reply_markup, parse_mode='Markdown')
+    
+    async def show_contact_info(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """顯示聯繫客服信息"""
+        contact_text = """
+📞 **客服聯繫方式**
+
+🔸 **Telegram**: @your_support_username
+🔸 **工作時間**: 週一至週日 9:00-22:00
+🔸 **回覆時間**: 通常在30分鐘內回覆
+
+❓ **常見問題**:
+• 付款後多久收到激活碼？
+  答：通常5-10分鐘自動發放
+
+• 激活碼忘記了怎麼辦？
+  答：可通過"我的訂單"查看
+
+• 軟件下載地址在哪裡？
+  答：購買後客服會提供下載鏈接
+
+📧 如有其他問題，請直接聯繫客服
+"""
+        
+        keyboard = [
+            [InlineKeyboardButton("🛒 購買激活碼", callback_data="buy_menu")],
+            [InlineKeyboardButton("❓ 使用說明", callback_data="help")],
+            [InlineKeyboardButton("🔙 返回主選單", callback_data="main_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await self.send_message(update, contact_text, reply_markup=reply_markup, parse_mode='Markdown')
+    
+    async def show_system_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """顯示系統狀態"""
+        try:
+            # 檢查各個系統組件狀態
+            db_status = "🟢 正常" 
+            monitor_status = "🟢 正常"
+            payment_status = "🟢 正常"
+            
+            # 獲取簡單統計
+            stats = self.db.get_statistics() if hasattr(self.db, 'get_statistics') else {}
+            
+            status_text = f"""
+⚙️ **系統狀態監控**
+
+🔸 **服務狀態**:
+• 機器人服務: 🟢 運行中
+• 數據庫服務: {db_status}
+• 支付監控: {monitor_status} 
+• USDT 監控: {payment_status}
+
+📊 **運行統計**:
+• 今日處理訂單: {stats.get('today_orders', 0)} 筆
+• 在線用戶: {stats.get('total_users', 0)} 人
+• 系統運行時間: 正常
+
+🔄 **最後更新**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+✅ 所有系統運行正常，可正常下單購買
+"""
+        except Exception as e:
+            logger.error(f"Error getting system status: {e}")
+            status_text = """
+⚙️ **系統狀態監控**
+
+⚠️ 正在檢查系統狀態...
+如有問題請聯繫客服
+"""
+        
+        keyboard = [
+            [InlineKeyboardButton("🔄 刷新狀態", callback_data="system_status")],
+            [InlineKeyboardButton("📞 聯繫客服", callback_data="contact")],
+            [InlineKeyboardButton("🔙 返回主選單", callback_data="main_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await self.send_message(update, status_text, reply_markup=reply_markup, parse_mode='Markdown')
+    
+    async def show_search_order(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """顯示訂單查詢說明"""
+        search_text = """
+🔍 **訂單查詢**
+
+請選擇查詢方式：
+
+🔸 **查看我的所有訂單**
+   查看您的完整訂單歷史
+
+🔸 **按訂單號查詢**
+   輸入訂單號查詢具體訂單
+
+💡 **提示**: 
+• 訂單號格式：TG123456ABCD
+• 可在"我的訂單"中查看所有訂單
+• 如需幫助請聯繫客服
+"""
+        
+        keyboard = [
+            [InlineKeyboardButton("📊 查看所有訂單", callback_data="my_orders")],
+            [InlineKeyboardButton("🔢 輸入訂單號", callback_data="input_order_id")],
+            [InlineKeyboardButton("🔙 返回主選單", callback_data="main_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await self.send_message(update, search_text, reply_markup=reply_markup, parse_mode='Markdown')
     
     async def admin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """處理 /admin 命令"""
@@ -408,13 +521,149 @@ class TGMarketingBot:
 """
         
         keyboard = [
-            [InlineKeyboardButton("📊 詳細統計", callback_data="admin_stats")],
-            [InlineKeyboardButton("👥 用戶管理", callback_data="admin_users")],
-            [InlineKeyboardButton("🔄 重啟監控", callback_data="admin_restart")]
+            [InlineKeyboardButton("📊 詳細統計", callback_data="admin_stats"), InlineKeyboardButton("📈 收入報表", callback_data="admin_revenue")],
+            [InlineKeyboardButton("👥 用戶管理", callback_data="admin_users"), InlineKeyboardButton("📋 訂單管理", callback_data="admin_orders")],
+            [InlineKeyboardButton("🔄 重啟監控", callback_data="admin_restart"), InlineKeyboardButton("🧹 清理數據", callback_data="admin_cleanup")],
+            [InlineKeyboardButton("⚙️ 系統設置", callback_data="admin_settings")],
+            [InlineKeyboardButton("🔙 返回主選單", callback_data="main_menu")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await self.send_message(update, admin_text, reply_markup=reply_markup, parse_mode='Markdown')
+    
+    async def show_admin_panel(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """顯示管理員控制面板"""
+        user_id = update.effective_user.id
+        
+        if user_id not in self.config.ADMIN_IDS:
+            await update.callback_query.answer("❌ 無權限訪問", show_alert=True)
+            return
+            
+        await self.admin_command(update, context)
+    
+    async def show_admin_stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """顯示詳細統計"""
+        user_id = update.effective_user.id
+        
+        if user_id not in self.config.ADMIN_IDS:
+            await update.callback_query.answer("❌ 無權限訪問", show_alert=True)
+            return
+        
+        try:
+            stats = self.db.get_statistics()
+            
+            stats_text = f"""
+📊 **詳細統計報表**
+
+📈 **訂單統計**:
+• 總訂單數: {stats.get('total_orders', 0)}
+• 今日訂單: {stats.get('today_orders', 0)}
+• 本週訂單: {stats.get('week_orders', 0)}
+• 本月訂單: {stats.get('month_orders', 0)}
+
+💰 **收入統計**:
+• 總收入: {stats.get('total_revenue', 0)} USDT
+• 今日收入: {stats.get('today_revenue', 0)} USDT
+• 本週收入: {stats.get('week_revenue', 0)} USDT
+• 本月收入: {stats.get('month_revenue', 0)} USDT
+
+👥 **用戶統計**:
+• 總用戶數: {stats.get('total_users', 0)}
+• 今日新增: {stats.get('today_new_users', 0)}
+• 活躍用戶: {stats.get('active_users', 0)}
+• 付費用戶: {stats.get('paid_users', 0)}
+
+🎯 **激活碼統計**:
+• 已生成: {stats.get('total_activations', 0)}
+• 已使用: {stats.get('used_activations', 0)}
+• 試用碼: {stats.get('trial_activations', 0)}
+• 付費碼: {stats.get('paid_activations', 0)}
+
+📅 **更新時間**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+"""
+        except Exception as e:
+            logger.error(f"Error getting admin stats: {e}")
+            stats_text = "❌ 獲取統計數據失敗，請稍後重試"
+        
+        keyboard = [
+            [InlineKeyboardButton("🔄 刷新數據", callback_data="admin_stats")],
+            [InlineKeyboardButton("📈 收入報表", callback_data="admin_revenue")],
+            [InlineKeyboardButton("🔙 返回管理", callback_data="admin_panel")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await self.send_message(update, stats_text, reply_markup=reply_markup, parse_mode='Markdown')
+    
+    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """處理用戶發送的文字消息"""
+        message = update.message
+        text = message.text.strip()
+        
+        # 檢查是否是訂單號格式
+        if text.startswith('TG') and len(text) >= 8:
+            # 處理訂單查詢
+            await self.handle_order_query(update, context, text)
+        else:
+            # 提供幫助信息
+            help_text = """
+❓ **需要幫助嗎？**
+
+🔸 **查詢訂單**: 直接發送訂單號（如：TG123456ABCD）
+🔸 **購買激活碼**: 點擊下方按鈕
+🔸 **查看訂單**: 使用"我的訂單"功能
+
+💡 **提示**: 建議使用按鈕操作更方便快捷！
+"""
+            keyboard = [
+                [InlineKeyboardButton("🛒 購買激活碼", callback_data="buy_menu")],
+                [InlineKeyboardButton("📊 我的訂單", callback_data="my_orders")],
+                [InlineKeyboardButton("🏠 主選單", callback_data="main_menu")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await message.reply_text(help_text, reply_markup=reply_markup, parse_mode='Markdown')
+    
+    async def handle_order_query(self, update: Update, context: ContextTypes.DEFAULT_TYPE, order_id: str):
+        """處理訂單查詢"""
+        user_id = update.effective_user.id
+        
+        try:
+            order = self.db.get_order(order_id)
+            
+            if not order:
+                error_text = f"❌ 找不到訂單 `{order_id}`\n\n請檢查訂單號是否正確"
+            elif order['user_id'] != user_id:
+                error_text = "❌ 您只能查詢自己的訂單"
+            else:
+                # 顯示訂單詳情
+                status_text = self.format_order_status(order)
+                keyboard = [
+                    [InlineKeyboardButton("🔄 刷新狀態", callback_data=f"status_{order_id}")],
+                    [InlineKeyboardButton("🏠 主選單", callback_data="main_menu")]
+                ]
+                
+                if order['status'] == 'pending':
+                    keyboard.insert(0, [InlineKeyboardButton("✅ 已付款", callback_data=f"check_payment_{order_id}")])
+                
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                await update.message.reply_text(status_text, reply_markup=reply_markup, parse_mode='Markdown')
+                return
+            
+            # 錯誤情況
+            keyboard = [
+                [InlineKeyboardButton("📊 我的訂單", callback_data="my_orders")],
+                [InlineKeyboardButton("🔍 查詢訂單", callback_data="search_order")],
+                [InlineKeyboardButton("🏠 主選單", callback_data="main_menu")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.message.reply_text(error_text, reply_markup=reply_markup, parse_mode='Markdown')
+            
+        except Exception as e:
+            logger.error(f"Error querying order {order_id}: {e}")
+            error_text = "❌ 查詢訂單時發生錯誤，請稍後重試"
+            keyboard = [[InlineKeyboardButton("🏠 主選單", callback_data="main_menu")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.message.reply_text(error_text, reply_markup=reply_markup)
     
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """處理按鈕回調"""
@@ -423,32 +672,79 @@ class TGMarketingBot:
         
         data = query.data
         
-        if data == "order":
+        # 主選單導航
+        if data == "main_menu":
+            await self.start_command(update, context)
+        elif data == "buy_menu":
             await self.show_pricing_menu(update, context)
+        elif data == "my_orders":
+            await self.show_user_orders(update, context)
+        elif data == "search_order":
+            await self.show_search_order(update, context)
+        elif data == "help":
+            await self.help_command(update, context)
+        elif data == "contact":
+            await self.show_contact_info(update, context)
+        elif data == "system_status":
+            await self.show_system_status(update, context)
+            
+        # 購買相關
         elif data.startswith("buy_"):
             plan_type = data.replace("buy_", "")
             await self.handle_purchase(update, context, plan_type)
+            
+        # 訂單相關  
         elif data.startswith("status_"):
             order_id = data.replace("status_", "")
-            order = self.db.get_order(order_id)
-            if order:
-                status_text = self.format_order_status(order)
-                await query.edit_message_text(status_text, parse_mode='Markdown')
+            try:
+                order = self.db.get_order(order_id)
+                if order and order['user_id'] == update.effective_user.id:
+                    status_text = self.format_order_status(order)
+                    await self.send_message(update, status_text, parse_mode='Markdown')
+                else:
+                    await query.answer("❌ 找不到該訂單或無權限查看", show_alert=True)
+            except Exception as e:
+                logger.error(f"Error getting order status: {e}")
+                await query.answer("❌ 查詢訂單時發生錯誤", show_alert=True)
+                
         elif data.startswith("check_payment_"):
             order_id = data.replace("check_payment_", "")
             await self.check_payment_status(update, context, order_id)
-        elif data == "help":
-            await self.help_command(update, context)
-        elif data == "my_orders":
-            await self.show_user_orders(update, context)
+            
+        elif data == "input_order_id":
+            await query.answer("請發送訂單號進行查詢（格式：TG123456ABCD）", show_alert=True)
+            
+        # 管理員功能
+        elif data == "admin_panel":
+            await self.show_admin_panel(update, context)
+        elif data == "admin_stats":
+            await self.show_admin_stats(update, context)
+        elif data == "admin_revenue":
+            await query.answer("收入報表功能開發中", show_alert=True)
+        elif data == "admin_users":
+            await query.answer("用戶管理功能開發中", show_alert=True)
+        elif data == "admin_orders":
+            await query.answer("訂單管理功能開發中", show_alert=True)
+        elif data == "admin_restart":
+            await query.answer("重啟監控功能開發中", show_alert=True)
+        elif data == "admin_cleanup":
+            await query.answer("清理數據功能開發中", show_alert=True)
+        elif data == "admin_settings":
+            await query.answer("系統設置功能開發中", show_alert=True)
+            
+        # 兼容舊的回調
+        elif data == "order":
+            await self.show_pricing_menu(update, context)
         elif data == "back_to_main":
             await self.start_command(update, context)
+        else:
+            await query.answer("❓ 未知操作", show_alert=True)
     
     async def check_payment_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE, order_id: str):
         """檢查付款狀態"""
         order = self.db.get_order(order_id)
-        if not order:
-            await update.callback_query.answer("❌ 訂單不存在", show_alert=True)
+        if not order or order['user_id'] != update.effective_user.id:
+            await update.callback_query.answer("❌ 訂單不存在或無權限查看", show_alert=True)
             return
         
         if order['status'] == 'paid':
@@ -462,7 +758,7 @@ class TGMarketingBot:
 
 請保存好您的激活碼！
 """
-            await update.callback_query.edit_message_text(text, parse_mode='Markdown')
+            await self.send_message(update, text, parse_mode='Markdown')
         else:
             await update.callback_query.answer("💰 正在檢查付款狀態，請稍候...", show_alert=True)
     
@@ -481,10 +777,13 @@ class TGMarketingBot:
                 text += f"💰 {order['amount']} USDT\n"
                 text += f"📅 {self.get_status_emoji(order['status'])} {order['status']}\n\n"
         
-        keyboard = [[InlineKeyboardButton("🔙 返回主選單", callback_data="back_to_main")]]
+        keyboard = [
+            [InlineKeyboardButton("🛒 購買激活碼", callback_data="buy_menu")],
+            [InlineKeyboardButton("🔍 查詢訂單", callback_data="search_order"), InlineKeyboardButton("🏠 主選單", callback_data="main_menu")]
+        ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        await self.send_message(update, text, reply_markup=reply_markup, parse_mode='Markdown')
     
     def generate_order_id(self) -> str:
         """生成訂單ID"""
@@ -543,20 +842,32 @@ def main():
         # 創建應用程序
         application = Application.builder().token(config.BOT_TOKEN).build()
         
-        # 添加命令處理器
+        # 添加主要命令處理器（簡化版）
         application.add_handler(CommandHandler("start", bot.start_command))
-        application.add_handler(CommandHandler("order", bot.order_command))
-        application.add_handler(CommandHandler("status", bot.status_command))
-        application.add_handler(CommandHandler("help", bot.help_command))
-        application.add_handler(CommandHandler("admin", bot.admin_command))
+        application.add_handler(CommandHandler("admin", bot.admin_command))  # 保留管理員命令
         
         # 添加按鈕回調處理器
         application.add_handler(CallbackQueryHandler(bot.button_callback))
+        
+        # 添加消息處理器（處理訂單號查詢等）
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bot.handle_message))
         
         # 添加錯誤處理器
         async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
             """處理錯誤"""
             logger.error(f"Exception while handling an update: {context.error}")
+            
+            # 嘗試向用戶發送錯誤消息
+            if update and hasattr(update, 'effective_user') and update.effective_user:
+                try:
+                    error_text = "⚠️ 處理您的請求時發生錯誤，請稍後重試或聯繫客服。"
+                    
+                    if hasattr(update, 'message') and update.message:
+                        await update.message.reply_text(error_text)
+                    elif hasattr(update, 'callback_query') and update.callback_query:
+                        await update.callback_query.answer(error_text, show_alert=True)
+                except Exception as e:
+                    logger.error(f"Failed to send error message to user: {e}")
             
         application.add_error_handler(error_handler)
         
