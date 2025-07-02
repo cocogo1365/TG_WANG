@@ -10,10 +10,12 @@ import json
 import logging
 import os
 import random
+import re
 import string
 import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
+from collections import defaultdict, deque
 
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -43,6 +45,94 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+class SecurityManager:
+    """安全管理器"""
+    
+    def __init__(self):
+        # 速率限制：每個用戶每分鐘最多操作次數
+        self.rate_limits = defaultdict(lambda: deque())
+        self.MAX_REQUESTS_PER_MINUTE = 20
+        self.MAX_REQUESTS_PER_HOUR = 100
+        
+        # 黑名單用戶
+        self.blacklisted_users = set()
+        
+        # 可疑行為監控
+        self.suspicious_activities = defaultdict(int)
+        
+        # 輸入驗證模式
+        self.order_id_pattern = re.compile(r'^TG[0-9A-Z]{8,12}$')
+        self.username_pattern = re.compile(r'^[a-zA-Z0-9_]{1,32}$')
+        
+    def is_rate_limited(self, user_id: int) -> bool:
+        """檢查用戶是否被速率限制"""
+        now = time.time()
+        user_requests = self.rate_limits[user_id]
+        
+        # 清理過期的請求記錄（1分鐘前）
+        while user_requests and user_requests[0] < now - 60:
+            user_requests.popleft()
+        
+        # 檢查是否超過限制
+        if len(user_requests) >= self.MAX_REQUESTS_PER_MINUTE:
+            return True
+            
+        # 記錄當前請求
+        user_requests.append(now)
+        return False
+    
+    def is_blacklisted(self, user_id: int) -> bool:
+        """檢查用戶是否在黑名單中"""
+        return user_id in self.blacklisted_users
+    
+    def add_to_blacklist(self, user_id: int):
+        """添加用戶到黑名單"""
+        self.blacklisted_users.add(user_id)
+        logger.warning(f"用戶 {user_id} 已被加入黑名單")
+    
+    def validate_order_id(self, order_id: str) -> bool:
+        """驗證訂單ID格式"""
+        if not order_id or len(order_id) > 20:
+            return False
+        return bool(self.order_id_pattern.match(order_id))
+    
+    def sanitize_input(self, text: str, max_length: int = 100) -> str:
+        """清理和驗證輸入文本"""
+        if not text:
+            return ""
+        
+        # 移除危險字符
+        sanitized = re.sub(r'[<>"\'\\/]', '', text.strip())
+        
+        # 限制長度
+        if len(sanitized) > max_length:
+            sanitized = sanitized[:max_length]
+            
+        return sanitized
+    
+    def log_suspicious_activity(self, user_id: int, activity: str):
+        """記錄可疑活動"""
+        self.suspicious_activities[user_id] += 1
+        logger.warning(f"可疑活動 - 用戶 {user_id}: {activity}")
+        
+        # 如果可疑活動過多，加入黑名單
+        if self.suspicious_activities[user_id] > 10:
+            self.add_to_blacklist(user_id)
+    
+    def validate_user_input(self, user_id: int, username: str, first_name: str) -> bool:
+        """驗證用戶輸入信息"""
+        # 檢查用戶名格式
+        if username and not self.username_pattern.match(username):
+            self.log_suspicious_activity(user_id, f"無效用戶名格式: {username}")
+            return False
+            
+        # 檢查名字長度
+        if first_name and len(first_name) > 64:
+            self.log_suspicious_activity(user_id, f"名字過長: {first_name}")
+            return False
+            
+        return True
+
 class TGMarketingBot:
     """TG營銷系統機器人主類"""
     
@@ -70,6 +160,9 @@ class TGMarketingBot:
         except Exception as e:
             logger.error(f"❌ 激活碼管理器初始化失敗: {e}")
             raise
+            
+        # 初始化安全管理器
+        self.security = SecurityManager()
         
         # 價格配置
         self.pricing = {
@@ -79,6 +172,32 @@ class TGMarketingBot:
         }
         
         # 監控將在應用程序啟動後開始
+    
+    async def security_check(self, update: Update) -> bool:
+        """安全檢查，返回True表示通過"""
+        user = update.effective_user
+        user_id = user.id
+        
+        # 檢查黑名單
+        if self.security.is_blacklisted(user_id):
+            logger.warning(f"黑名單用戶嘗試訪問: {user_id}")
+            return False
+        
+        # 檢查速率限制
+        if self.security.is_rate_limited(user_id):
+            logger.warning(f"用戶 {user_id} 觸發速率限制")
+            if update.callback_query:
+                await update.callback_query.answer("⚠️ 操作過於頻繁，請稍後再試", show_alert=True)
+            elif update.message:
+                await update.message.reply_text("⚠️ 操作過於頻繁，請稍後再試")
+            return False
+        
+        # 驗證用戶輸入
+        if not self.security.validate_user_input(user_id, user.username, user.first_name):
+            logger.warning(f"用戶輸入驗證失敗: {user_id}")
+            return False
+            
+        return True
     
     async def start_monitoring(self):
         """啟動交易監控"""
@@ -97,6 +216,10 @@ class TGMarketingBot:
     
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """處理 /start 命令"""
+        # 安全檢查
+        if not await self.security_check(update):
+            return
+            
         user = update.effective_user
         user_id = user.id
         
@@ -192,8 +315,18 @@ class TGMarketingBot:
     
     async def handle_purchase(self, update: Update, context: ContextTypes.DEFAULT_TYPE, plan_type: str):
         """處理購買請求"""
+        # 安全檢查
+        if not await self.security_check(update):
+            return
+            
         user_id = update.effective_user.id
         user = update.effective_user
+        
+        # 驗證方案類型
+        if plan_type not in self.pricing:
+            self.security.log_suspicious_activity(user_id, f"無效方案類型: {plan_type}")
+            await update.callback_query.answer("❌ 無效的方案類型", show_alert=True)
+            return
         
         if plan_type == 'trial':
             # 處理試用申請
@@ -546,8 +679,8 @@ class TGMarketingBot:
         keyboard = [
             [InlineKeyboardButton("📊 詳細統計", callback_data="admin_stats"), InlineKeyboardButton("📈 收入報表", callback_data="admin_revenue")],
             [InlineKeyboardButton("👥 用戶管理", callback_data="admin_users"), InlineKeyboardButton("📋 訂單管理", callback_data="admin_orders")],
-            [InlineKeyboardButton("🔄 重啟監控", callback_data="admin_restart"), InlineKeyboardButton("🧹 清理數據", callback_data="admin_cleanup")],
-            [InlineKeyboardButton("⚙️ 系統設置", callback_data="admin_settings")],
+            [InlineKeyboardButton("🛡️ 安全管理", callback_data="security_panel"), InlineKeyboardButton("🔄 重啟監控", callback_data="admin_restart")],
+            [InlineKeyboardButton("⚙️ 系統設置", callback_data="admin_settings"), InlineKeyboardButton("🧹 清理數據", callback_data="admin_cleanup")],
             [InlineKeyboardButton("🔙 返回主選單", callback_data="main_menu")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -559,9 +692,11 @@ class TGMarketingBot:
         user_id = update.effective_user.id
         
         if user_id not in self.config.ADMIN_IDS:
+            self.security.log_suspicious_activity(user_id, "嘗試訪問管理員功能")
             await update.callback_query.answer("❌ 無權限訪問", show_alert=True)
             return
             
+        logger.info(f"管理員 {user_id} 訪問控制面板")
         await self.admin_command(update, context)
     
     async def show_admin_stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -617,13 +752,64 @@ class TGMarketingBot:
         
         await self.send_message(update, stats_text, reply_markup=reply_markup, parse_mode='Markdown')
     
+    async def show_security_panel(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """顯示安全管理面板"""
+        user_id = update.effective_user.id
+        
+        if user_id not in self.config.ADMIN_IDS:
+            await update.callback_query.answer("❌ 無權限訪問", show_alert=True)
+            return
+        
+        blacklist_count = len(self.security.blacklisted_users)
+        suspicious_count = len(self.security.suspicious_activities)
+        
+        security_text = f"""
+🛡️ **安全管理面板**
+
+📊 **安全統計**:
+• 黑名單用戶數: {blacklist_count}
+• 可疑活動用戶: {suspicious_count}
+• 速率限制保護: ✅ 啟用
+• 輸入驗證: ✅ 啟用
+
+⚡ **近期活動**:
+"""
+        
+        # 顯示最近的可疑活動
+        recent_activities = list(self.security.suspicious_activities.items())[-5:]
+        if recent_activities:
+            for user_id, count in recent_activities:
+                security_text += f"• 用戶 {user_id}: {count} 次可疑操作\n"
+        else:
+            security_text += "• 暫無可疑活動\n"
+        
+        security_text += f"\n📅 **更新時間**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        
+        keyboard = [
+            [InlineKeyboardButton("📋 查看黑名單", callback_data="security_blacklist")],
+            [InlineKeyboardButton("🔍 可疑活動", callback_data="security_suspicious")],
+            [InlineKeyboardButton("🔙 返回管理", callback_data="admin_panel")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await self.send_message(update, security_text, reply_markup=reply_markup, parse_mode='Markdown')
+    
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """處理用戶發送的文字消息"""
+        # 安全檢查
+        if not await self.security_check(update):
+            return
+            
         message = update.message
-        text = message.text.strip()
+        text = self.security.sanitize_input(message.text, 100)
         
         # 檢查是否是訂單號格式
         if text.startswith('TG') and len(text) >= 8:
+            # 驗證訂單號格式
+            if not self.security.validate_order_id(text):
+                self.security.log_suspicious_activity(update.effective_user.id, f"無效訂單號格式: {text}")
+                await message.reply_text("❌ 無效的訂單號格式，請檢查後重試")
+                return
             # 處理訂單查詢
             await self.handle_order_query(update, context, text)
         else:
@@ -690,10 +876,14 @@ class TGMarketingBot:
     
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """處理按鈕回調"""
+        # 安全檢查
+        if not await self.security_check(update):
+            return
+            
         query = update.callback_query
         await query.answer()
         
-        data = query.data
+        data = self.security.sanitize_input(query.data, 50)
         
         # 主選單導航
         if data == "main_menu":
@@ -767,6 +957,12 @@ class TGMarketingBot:
             await query.answer("清理數據功能開發中", show_alert=True)
         elif data == "admin_settings":
             await query.answer("系統設置功能開發中", show_alert=True)
+        elif data == "security_panel":
+            await self.show_security_panel(update, context)
+        elif data == "security_blacklist":
+            await query.answer("黑名單管理功能開發中", show_alert=True)
+        elif data == "security_suspicious":
+            await query.answer("可疑活動詳情功能開發中", show_alert=True)
             
         # 兼容舊的回調
         elif data == "order":
