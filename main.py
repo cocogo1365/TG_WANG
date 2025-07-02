@@ -224,7 +224,15 @@ class TGMarketingBot:
 
 💡 試用期結束後，歡迎購買正式版本！
 """
-            await self.send_message(update, text, parse_mode='Markdown')
+            
+            keyboard = [
+                [InlineKeyboardButton("📞 聯繫客服", callback_data="contact")],
+                [InlineKeyboardButton("💳 購買正式版", callback_data="buy_menu")],
+                [InlineKeyboardButton("🏠 返回主選單", callback_data="main_menu")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await self.send_message(update, text, reply_markup=reply_markup, parse_mode='Markdown')
             
         else:
             # 處理付費購買
@@ -271,7 +279,7 @@ class TGMarketingBot:
 • 付款後5-10分鐘內自動發放激活碼
 • 訂單有效期24小時
 
-🔍 使用 /status {order_id} 查詢訂單狀態
+🔍 點擊下方"查詢狀態"按鈕查看付款進度
 """
             
             keyboard = [
@@ -327,11 +335,19 @@ class TGMarketingBot:
 感謝您的購買！🙏
 """
             
-            # 發送消息給用戶
+            # 發送消息給用戶（帶按鈕）
             if hasattr(self, 'application') and self.application:
+                keyboard = [
+                    [InlineKeyboardButton("📞 聯繫客服", callback_data="contact")],
+                    [InlineKeyboardButton("📊 我的訂單", callback_data="my_orders")],
+                    [InlineKeyboardButton("🏠 主選單", callback_data="main_menu")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
                 await self.application.bot.send_message(
                     chat_id=order['user_id'],
                     text=text,
+                    reply_markup=reply_markup,
                     parse_mode='Markdown'
                 )
             
@@ -345,33 +361,40 @@ class TGMarketingBot:
         help_text = """
 📖 **TG營銷系統使用幫助**
 
-🤖 **機器人命令**:
-• /start - 開始使用
-• /order - 購買激活碼
-• /status - 查詢訂單狀態
-• /help - 顯示幫助
+🎯 **如何使用**:
+• 點擊"購買激活碼"選擇方案
+• 使用"我的訂單"查看購買記錄  
+• 通過"查詢訂單"追蹤付款狀態
+• "聯繫客服"獲得專業支持
 
 💰 **價格方案**:
 • 🆓 免費試用: 2天 (每帳戶限用一次)
-• 📅 一週方案: 20 USDT
-• 📅 一個月方案: 70 USDT
+• 📅 一週方案: 20 USDT (7天)
+• 📅 一個月方案: 70 USDT (30天)
 
-💳 **付款方式**:
-• 支持 USDT (TRC-20)
-• 自動確認付款
-• 即時發放激活碼
+💳 **付款流程**:
+1. 選擇購買方案
+2. 發送 USDT (TRC-20) 到指定地址
+3. 點擊"已付款"確認
+4. 5-10分鐘內自動收到激活碼
 
 📝 **軟件功能**:
-• 多賬戶管理
-• 智能群組邀請
+• 多賬戶智能管理
+• 高效群組邀請系統
 • 批量消息發送
-• 數據採集分析
-• 防封號保護
+• 數據採集與分析
+• 智能防封號保護
 
 ❓ **常見問題**:
-• 付款後多久收到激活碼？通常5-10分鐘
-• 激活碼可以重複使用嗎？每個激活碼只能用一次
-• 試用版有功能限制嗎？無限制，僅時間限制
+• 付款後多久收到激活碼？通常5-10分鐘自動發放
+• 激活碼可以重複使用嗎？每個激活碼只能使用一次
+• 試用版有功能限制嗎？功能完整，僅有時間限制
+• 如何下載軟件？購買後客服提供下載鏈接
+
+🔧 **操作提示**:
+• 建議使用按鈕操作，快速便捷
+• 可直接發送訂單號查詢狀態
+• 支持24/7在線客服支持
 
 📞 **客服支持**: @your_support_username
 """
@@ -700,7 +723,20 @@ class TGMarketingBot:
                 order = self.db.get_order(order_id)
                 if order and order['user_id'] == update.effective_user.id:
                     status_text = self.format_order_status(order)
-                    await self.send_message(update, status_text, parse_mode='Markdown')
+                    
+                    # 添加操作按鈕
+                    keyboard = [
+                        [InlineKeyboardButton("🔄 刷新狀態", callback_data=f"status_{order_id}")],
+                        [InlineKeyboardButton("📊 我的訂單", callback_data="my_orders")],
+                        [InlineKeyboardButton("🏠 主選單", callback_data="main_menu")]
+                    ]
+                    
+                    # 如果是待付款狀態，添加已付款按鈕
+                    if order['status'] == 'pending':
+                        keyboard.insert(0, [InlineKeyboardButton("✅ 已付款", callback_data=f"check_payment_{order_id}")])
+                    
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    await self.send_message(update, status_text, reply_markup=reply_markup, parse_mode='Markdown')
                 else:
                     await query.answer("❌ 找不到該訂單或無權限查看", show_alert=True)
             except Exception as e:
@@ -758,7 +794,14 @@ class TGMarketingBot:
 
 請保存好您的激活碼！
 """
-            await self.send_message(update, text, parse_mode='Markdown')
+            keyboard = [
+                [InlineKeyboardButton("📞 聯繫客服", callback_data="contact")],
+                [InlineKeyboardButton("📊 我的訂單", callback_data="my_orders")],
+                [InlineKeyboardButton("🏠 主選單", callback_data="main_menu")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await self.send_message(update, text, reply_markup=reply_markup, parse_mode='Markdown')
         else:
             await update.callback_query.answer("💰 正在檢查付款狀態，請稍候...", show_alert=True)
     
