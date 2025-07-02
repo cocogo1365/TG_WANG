@@ -558,17 +558,8 @@ def main():
         # 啟動機器人
         logger.info("🚀 TG營銷系統機器人啟動中...")
         
-        if os.getenv('RAILWAY_ENVIRONMENT'):
-            # Railway 部署環境
-            port = int(os.environ.get('PORT', 8080))
-            application.run_webhook(
-                listen="0.0.0.0",
-                port=port,
-                webhook_url=f"https://{os.environ.get('RAILWAY_STATIC_URL')}"
-            )
-        else:
-            # 本地開發環境
-            application.run_polling()
+        # 使用 polling 模式以避免 webhook 配置問題
+        application.run_polling(drop_pending_updates=True)
             
     except Exception as e:
         logger.error(f"❌ 機器人啟動失敗: {e}")
