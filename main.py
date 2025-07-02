@@ -549,6 +549,13 @@ def main():
         # 添加按鈕回調處理器
         application.add_handler(CallbackQueryHandler(bot.button_callback))
         
+        # 添加錯誤處理器
+        async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+            """處理錯誤"""
+            logger.error(f"Exception while handling an update: {context.error}")
+            
+        application.add_error_handler(error_handler)
+        
         # 保存應用程序實例到機器人中，以便在付款確認時發送消息
         bot.application = application
         
@@ -562,7 +569,12 @@ def main():
         logger.info("🚀 TG營銷系統機器人啟動中...")
         
         # 使用 polling 模式以避免 webhook 配置問題
-        application.run_polling(drop_pending_updates=True)
+        # 添加錯誤處理以避免多實例衝突
+        application.run_polling(
+            drop_pending_updates=True,
+            close_loop=False,
+            stop_signals=None
+        )
             
     except Exception as e:
         logger.error(f"❌ 機器人啟動失敗: {e}")
