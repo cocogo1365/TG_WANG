@@ -54,8 +54,7 @@ class TGMarketingBot:
             'monthly': {'days': 30, 'price': 70.0, 'name': '一個月方案'}
         }
         
-        # 啟動監控任務
-        asyncio.create_task(self.start_monitoring())
+        # 監控將在應用程序啟動後開始
     
     async def start_monitoring(self):
         """啟動交易監控"""
@@ -549,6 +548,12 @@ def main():
         
         # 保存應用程序實例到機器人中，以便在付款確認時發送消息
         bot.application = application
+        
+        # 啟動監控任務
+        async def post_init(application):
+            asyncio.create_task(bot.start_monitoring())
+        
+        application.post_init = post_init
         
         # 啟動機器人
         logger.info("🚀 TG營銷系統機器人啟動中...")
