@@ -64,6 +64,13 @@ class TGMarketingBot:
         except Exception as e:
             logger.error(f"❌ 啟動交易監控失敗: {e}")
     
+    async def send_message(self, update: Update, text: str, reply_markup=None, parse_mode=None):
+        """統一的消息發送方法，處理普通消息和回調查詢"""
+        if update.message:
+            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode=parse_mode)
+        elif update.callback_query:
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode=parse_mode)
+    
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """處理 /start 命令"""
         user = update.effective_user
@@ -111,7 +118,7 @@ class TGMarketingBot:
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(welcome_text, reply_markup=reply_markup)
+        await self.send_message(update, welcome_text, reply_markup=reply_markup)
     
     async def order_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """處理 /order 命令"""
@@ -152,7 +159,7 @@ class TGMarketingBot:
         if update.callback_query:
             await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
         else:
-            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+            await self.send_message(update, text, reply_markup=reply_markup, parse_mode='Markdown')
     
     async def handle_purchase(self, update: Update, context: ContextTypes.DEFAULT_TYPE, plan_type: str):
         """處理購買請求"""
@@ -311,17 +318,17 @@ class TGMarketingBot:
             order = self.db.get_order(order_id)
             
             if not order or order['user_id'] != user_id:
-                await update.message.reply_text("❌ 找不到該訂單或無權限查看")
+                await self.send_message(update, "❌ 找不到該訂單或無權限查看")
                 return
             
             status_text = self.format_order_status(order)
-            await update.message.reply_text(status_text, parse_mode='Markdown')
+            await self.send_message(update, status_text, parse_mode='Markdown')
         else:
             # 顯示用戶所有訂單
             orders = self.db.get_user_orders(user_id)
             
             if not orders:
-                await update.message.reply_text("📋 您還沒有任何訂單")
+                await self.send_message(update, "📋 您還沒有任何訂單")
                 return
             
             text = "📊 **您的訂單**:\n\n"
@@ -331,7 +338,7 @@ class TGMarketingBot:
                 text += f"💰 {order['amount']} USDT\n"
                 text += f"📅 {order['status']}\n\n"
             
-            await update.message.reply_text(text, parse_mode='Markdown')
+            await self.send_message(update, text, parse_mode='Markdown')
     
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """處理 /help 命令"""
@@ -368,17 +375,14 @@ class TGMarketingBot:
 
 📞 **客服支持**: @your_support_username
 """
-        if update.message:
-            await update.message.reply_text(help_text, parse_mode='Markdown')
-        else:
-            await update.callback_query.edit_message_text(help_text, parse_mode='Markdown')
+        await self.send_message(update, help_text, parse_mode='Markdown')
     
     async def admin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """處理 /admin 命令"""
         user_id = update.effective_user.id
         
         if user_id not in self.config.ADMIN_IDS:
-            await update.message.reply_text("❌ 無權限訪問管理功能")
+            await self.send_message(update, "❌ 無權限訪問管理功能")
             return
         
         stats = self.db.get_statistics()
@@ -410,7 +414,7 @@ class TGMarketingBot:
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(admin_text, reply_markup=reply_markup, parse_mode='Markdown')
+        await self.send_message(update, admin_text, reply_markup=reply_markup, parse_mode='Markdown')
     
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """處理按鈕回調"""
