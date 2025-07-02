@@ -1,6 +1,5 @@
 # Telegram Bot
 python-telegram-bot==20.7
-telegram==0.0.1
 
 # Async HTTP Client
 aiohttp==3.9.1
@@ -13,7 +12,7 @@ python-dotenv==1.0.0
 ujson==5.8.0
 
 # Crypto and Encoding
-cryptography==41.0.8
+cryptography>=41.0.0,<46.0.0
 base58==2.1.1
 
 # Date and Time
