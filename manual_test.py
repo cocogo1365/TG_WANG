@@ -20,7 +20,7 @@ def test_api_manual():
     
     print(f"🔑 API 密鑰: {api_key[:10]}...")
     
-    url = "https://api.trongrid.io/wallet/getnowblock"
+    url = "https://apilist.tronscanapi.com/api/block/latest"
     
     # 構建請求
     headers = {
@@ -30,7 +30,7 @@ def test_api_manual():
     
     try:
         # 創建請求
-        req = urllib.request.Request(url, data=b'{}', headers=headers, method='POST')
+        req = urllib.request.Request(url, headers=headers, method='GET')
         
         print(f"📡 發送請求到: {url}")
         
@@ -43,7 +43,7 @@ def test_api_manual():
             
             if status_code == 200:
                 data = json.loads(response_data.decode('utf-8'))
-                block_num = data.get('block_header', {}).get('raw_data', {}).get('number', 0)
+                block_num = data.get('number', 0)
                 print(f"✅ API 連接成功!")
                 print(f"📊 當前區塊: {block_num}")
                 
@@ -85,7 +85,7 @@ def test_account_transactions(api_key):
     print(f"\n💰 測試獲取賬戶交易...")
     print(f"📧 錢包地址: {usdt_address}")
     
-    url = f"https://api.trongrid.io/v1/accounts/{usdt_address}/transactions"
+    url = f"https://apilist.tronscanapi.com/api/transaction"
     
     headers = {
         'TRON-PRO-API-KEY': api_key
@@ -94,7 +94,9 @@ def test_account_transactions(api_key):
     # 添加查詢參數
     params = {
         'limit': 10,
-        'only_confirmed': 'true'
+        'address': usdt_address,
+        'start': 0,
+        'direction': 'in'
     }
     
     query_string = urllib.parse.urlencode(params)
@@ -111,7 +113,7 @@ def test_account_transactions(api_key):
                 
                 # 顯示最近的幾個交易
                 for i, tx in enumerate(transactions[:3]):
-                    print(f"  交易 {i+1}: {tx.get('txID', '未知')[:16]}...")
+                    print(f"  交易 {i+1}: {tx.get('hash', '未知')[:16]}...")
                     
             else:
                 print(f"❌ 獲取交易失敗: {response.getcode()}")

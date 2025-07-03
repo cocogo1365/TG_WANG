@@ -66,15 +66,15 @@ class TronMonitor:
         """獲取最新區塊號"""
         try:
             async with aiohttp.ClientSession() as session:
-                url = f"{self.config.TRONGRID_API_URL}/wallet/getnowblock"
+                url = f"{self.config.TRONGRID_API_URL}/api/block/latest"
                 headers = self.config.get_trongrid_headers()
                 
                 logger.debug(f"🌐 請求 TronGrid API: {url}")
                 
-                async with session.post(url, headers=headers) as response:
+                async with session.get(url, headers=headers) as response:
                     if response.status == 200:
                         data = await response.json()
-                        block_number = data.get('block_header', {}).get('raw_data', {}).get('number', 0)
+                        block_number = data.get('number', 0)
                         if block_number > 0:
                             logger.debug(f"✅ 成功獲取區塊號: {block_number}")
                         return block_number
@@ -445,35 +445,32 @@ class TronMonitor:
         """獲取 TRX 交易記錄（測試模式）"""
         try:
             async with aiohttp.ClientSession() as session:
-                url = f"{self.config.TRONGRID_API_URL}/v1/accounts/{self.config.USDT_ADDRESS}/transactions"
+                url = f"{self.config.TRONGRID_API_URL}/api/transaction"
                 headers = self.config.get_trongrid_headers()
                 params = {
                     'limit': limit,
-                    'only_confirmed': True,
-                    'only_to': True  # 只獲取轉入交易
+                    'address': self.config.USDT_ADDRESS,
+                    'start': 0,
+                    'direction': 'in'  # 只獲取轉入交易
                 }
                 
                 async with session.get(url, headers=headers, params=params) as response:
                     if response.status == 200:
                         data = await response.json()
-                        # 過濾出 TRX 轉賬交易
+                        # 處理 TronScan API 返回的交易數據
                         trx_transactions = []
-                        for tx in data.get('data', []):
-                            # 檢查是否是 TRX 轉賬
-                            for contract in tx.get('raw_data', {}).get('contract', []):
-                                if contract.get('type') == 'TransferContract':
-                                    contract_value = contract.get('parameter', {}).get('value', {})
-                                    # 轉換地址格式
-                                    from_addr = await self.hex_to_base58(contract_value.get('owner_address', ''))
-                                    to_addr = await self.hex_to_base58(contract_value.get('to_address', ''))
-                                    
-                                    trx_transactions.append({
-                                        'transaction_id': tx.get('txID'),
-                                        'block_timestamp': tx.get('block_timestamp'),
-                                        'from': from_addr,
-                                        'to': to_addr,
-                                        'value': contract_value.get('amount', 0)
-                                    })
+                        transactions = data.get('data', [])
+                        
+                        for tx in transactions:
+                            # TronScan API 返回格式
+                            if tx.get('contractType') == 1:  # TRX 轉賬
+                                trx_transactions.append({
+                                    'transaction_id': tx.get('hash'),
+                                    'block_timestamp': tx.get('timestamp'),
+                                    'from': tx.get('ownerAddress'),
+                                    'to': tx.get('toAddress'),
+                                    'value': tx.get('amount', 0)
+                                })
                         return trx_transactions
                     else:
                         logger.error(f"❌ 獲取 TRX 交易失敗: HTTP {response.status}")

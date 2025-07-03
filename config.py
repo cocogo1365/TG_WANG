@@ -14,9 +14,9 @@ class Config:
         # Telegram Bot Token
         self.BOT_TOKEN = os.getenv('BOT_TOKEN')
         
-        # TronGrid API 配置
-        self.TRONGRID_API_KEY = os.getenv('TRONGRID_API_KEY')
-        self.TRONGRID_API_URL = "https://api.trongrid.io"
+        # TronScan API 配置
+        self.TRONGRID_API_KEY = os.getenv('TRONGRID_API_KEY')  # 保持變量名不變
+        self.TRONGRID_API_URL = "https://apilist.tronscanapi.com"  # 改為 TronScan API
         
         # USDT 配置
         self.USDT_ADDRESS = os.getenv('USDT_ADDRESS', 'TGEhjpGrYT2mtST2vHxTd5dTxfh21UzkRP')
