@@ -171,8 +171,8 @@ class SmartMonitorManager:
             del self.pending_orders[order_id]
             logger.info(f"訂單 {order_id} 已從監控列表移除")
     
-    def cleanup_expired_orders(self):
-        """清理過期的監控訂單"""
+    def cleanup_expired_orders(self, db=None):
+        """清理過期的監控訂單並自動取消"""
         now = datetime.now()
         expired_orders = []
         
@@ -181,22 +181,36 @@ class SmartMonitorManager:
                 expired_orders.append(order_id)
         
         for order_id in expired_orders:
-            logger.info(f"訂單 {order_id} 監控已過期，移除")
+            logger.info(f"訂單 {order_id} 監控已過期，自動取消")
+            
+            # 從監控列表移除
             del self.pending_orders[order_id]
+            
+            # 如果提供了數據庫實例，自動取消數據庫中的訂單
+            if db:
+                try:
+                    order = db.get_order(order_id)
+                    if order and order.get('status') == 'pending':
+                        db.update_order_status(order_id, 'cancelled')
+                        logger.info(f"訂單 {order_id} 已自動取消（30分鐘未付款）")
+                except Exception as e:
+                    logger.error(f"自動取消訂單 {order_id} 失敗: {e}")
+        
+        return len(expired_orders)
     
-    def should_monitor(self) -> bool:
+    def should_monitor(self, db=None) -> bool:
         """判斷是否需要監控"""
-        self.cleanup_expired_orders()
+        self.cleanup_expired_orders(db)
         return len(self.pending_orders) > 0
     
-    def get_monitoring_amounts(self) -> List[float]:
+    def get_monitoring_amounts(self, db=None) -> List[float]:
         """獲取需要監控的金額列表"""
-        self.cleanup_expired_orders()
+        self.cleanup_expired_orders(db)
         return [info['amount'] for info in self.pending_orders.values()]
     
-    def get_pending_orders_count(self) -> int:
+    def get_pending_orders_count(self, db=None) -> int:
         """獲取待監控訂單數量"""
-        self.cleanup_expired_orders()
+        self.cleanup_expired_orders(db)
         return len(self.pending_orders)
 
 class TGMarketingBot:
@@ -295,7 +309,7 @@ class TGMarketingBot:
         if self.smart_monitor.is_monitoring:
             return  # 已經在監控中
         
-        if not self.smart_monitor.should_monitor():
+        if not self.smart_monitor.should_monitor(self.db):
             return  # 沒有待監控的訂單
         
         self.smart_monitor.is_monitoring = True
@@ -304,10 +318,10 @@ class TGMarketingBot:
         async def smart_monitor_task():
             logger.info("🔍 智能監控已啟動")
             
-            while self.smart_monitor.should_monitor():
+            while self.smart_monitor.should_monitor(self.db):
                 try:
                     # 獲取需要監控的金額
-                    amounts_to_monitor = self.smart_monitor.get_monitoring_amounts()
+                    amounts_to_monitor = self.smart_monitor.get_monitoring_amounts(self.db)
                     
                     if amounts_to_monitor:
                         logger.info(f"正在監控 {len(amounts_to_monitor)} 個訂單的付款")
@@ -618,7 +632,8 @@ class TGMarketingBot:
         keyboard2 = [
             [InlineKeyboardButton("❌ 取消付款", callback_data=f"cancel_payment_{order_id}"), 
              InlineKeyboardButton("✅ 完成付款", callback_data=f"complete_payment_{order_id}")],
-            [InlineKeyboardButton("📋 查看訂單", callback_data=f"status_{order_id}")]
+            [InlineKeyboardButton("📋 查看訂單", callback_data=f"status_{order_id}")],
+            [InlineKeyboardButton("🏠 返回主選單", callback_data="main_menu")]
         ]
         reply_markup2 = InlineKeyboardMarkup(keyboard2)
         
@@ -898,7 +913,8 @@ TG營銷系統團隊 敬上 ❤️
         keyboard_amount = [
             [InlineKeyboardButton("❌ 取消測試", callback_data=f"cancel_test_{order_id}"), 
              InlineKeyboardButton("✅ 我已付款", callback_data=f"check_payment_{order_id}")],
-            [InlineKeyboardButton("📋 查看訂單", callback_data=f"status_{order_id}")]
+            [InlineKeyboardButton("📋 查看訂單", callback_data=f"status_{order_id}")],
+            [InlineKeyboardButton("🏠 返回主選單", callback_data="main_menu")]
         ]
         reply_markup_amount = InlineKeyboardMarkup(keyboard_amount)
         
@@ -1299,8 +1315,8 @@ TG營銷系統團隊 敬上 ❤️
 
 🔍 **智能監控狀態**:
 • 監控狀態: {'🟢 運行中' if self.smart_monitor.is_monitoring else '🔴 待命中'}
-• 待監控訂單: {self.smart_monitor.get_pending_orders_count()}
-• 監控金額: {', '.join([f'{amt:.2f}' for amt in self.smart_monitor.get_monitoring_amounts()])} USDT
+• 待監控訂單: {self.smart_monitor.get_pending_orders_count(self.db)}
+• 監控金額: {', '.join([f'{amt:.2f}' for amt in self.smart_monitor.get_monitoring_amounts(self.db)])} USDT
 
 📅 **更新時間**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 """
@@ -1963,6 +1979,26 @@ def main():
         # 不再自動啟動監控 - 使用智能監控
         async def post_init(application):
             logger.info("✅ 機器人初始化完成，智能監控待命中...")
+            
+            # 啟動定期清理過期訂單的任務
+            async def periodic_cleanup():
+                """定期清理過期訂單"""
+                while True:
+                    try:
+                        # 每5分鐘檢查一次過期訂單
+                        await asyncio.sleep(300)  # 5分鐘
+                        
+                        # 清理過期訂單
+                        expired_count = bot.smart_monitor.cleanup_expired_orders(bot.db)
+                        if expired_count > 0:
+                            logger.info(f"📋 定期清理：已自動取消 {expired_count} 個過期訂單")
+                            
+                    except Exception as e:
+                        logger.error(f"❌ 定期清理任務錯誤: {e}")
+                        await asyncio.sleep(60)  # 錯誤時等待1分鐘再重試
+            
+            # 啟動定期清理任務
+            asyncio.create_task(periodic_cleanup())
         
         application.post_init = post_init
         
