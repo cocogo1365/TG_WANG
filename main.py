@@ -346,16 +346,32 @@ class TGMarketingBot:
     async def check_recent_transactions(self, amounts_to_monitor: List[float]):
         """檢查最近的交易"""
         try:
-            # 這裡應該調用 tron_monitor 來檢查指定金額的交易
-            # 只查詢最近30分鐘的交易，不是所有歷史交易
+            logger.info(f"🔍 檢查 {len(amounts_to_monitor)} 個訂單的付款狀態")
+            
             for amount in amounts_to_monitor:
-                logger.debug(f"檢查金額 {amount} USDT 的交易")
+                logger.debug(f"檢查金額 {amount} {'TRX' if self.TEST_MODE else 'USDT'} 的交易")
                 
-                # 模擬檢查 - 實際應該調用 TRON API
-                # 如果發現匹配的交易，調用 handle_payment_confirmed
+                # 調用 TronMonitor 驗證付款
+                payment_result = await self.tron_monitor.verify_payment(amount, max_age_minutes=30)
+                
+                if payment_result:
+                    logger.info(f"🎉 發現匹配的付款: {amount} {'TRX' if self.TEST_MODE else 'USDT'}")
+                    logger.info(f"📋 交易哈希: {payment_result.get('tx_hash', '未知')}")
+                    
+                    # 找到對應的訂單
+                    orders = list(self.smart_monitor.pending_orders.keys())
+                    for order_id in orders:
+                        order_info = self.smart_monitor.pending_orders[order_id]
+                        if abs(order_info['amount'] - amount) < 0.001:  # 金額匹配
+                            await self.handle_payment_confirmed(payment_result)
+                            break
+                else:
+                    logger.debug(f"未找到金額 {amount} 的匹配付款")
                 
         except Exception as e:
             logger.error(f"檢查交易失敗: {e}")
+            import traceback
+            logger.error(f"錯誤詳情: {traceback.format_exc()}")
     
     async def send_message(self, update: Update, text: str, reply_markup=None, parse_mode=None):
         """統一的消息發送方法，處理普通消息和回調查詢"""
