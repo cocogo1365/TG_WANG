@@ -841,34 +841,40 @@ TG營銷系統團隊 敬上 ❤️
         
         try:
             self.db.create_order(order_data)
+            
+            # 將測試訂單加入智能監控系統（真實監控 TRX 付款）
+            self.smart_monitor.add_order_for_monitoring(order_id, test_amount)
+            
+            # 啟動智能監控
+            await self.start_smart_monitoring()
+            
+            logger.info(f"測試訂單 {order_id} 已加入 TRX 監控，金額: {test_amount} TRX")
+            
         except Exception as e:
             logger.error(f"Failed to create test order: {e}")
             await update.callback_query.answer("❌ 創建測試訂單失敗", show_alert=True)
             return
         
         # 顯示測試購買界面
-        test_text = f"""
-🧪 **測試模式購買**
+        test_text = f"""🧪 真實 TRX 測試購買
 
-🆔 測試訂單號: `{order_id}`
-💰 付款金額: **{test_amount} TRX**
-🌐 網絡類型: **TRON (TRX)**
+🆔 測試訂單號: {order_id}
+💰 付款金額: {test_amount} TRX
+🌐 網絡類型: TRON (TRX)
 📦 測試方案: 一週方案 (7天)
 
-⚡ **測試說明**:
-• 點擊"模擬付款"按鈕進行測試
-• 系統將模擬收到 {test_amount} TRX
-• 自動生成並發送隨機驗證碼
-• 測試完成後可重複測試
+⚡ 測試說明:
+• 請真實發送 {test_amount} TRX 到收款地址
+• 系統會自動監控您的付款
+• 確認收到後立即發送真實激活碼
+• 這是低成本的真實交易測試
 
-🔍 **收款地址**: `{self.config.USDT_ADDRESS}`
+🔍 收款地址: {self.config.USDT_ADDRESS}
 
-⚠️ **這是測試模式，不會產生實際費用**
-"""
+⚠️ 這需要真實的 TRX 付款（約 {test_amount} TRX ≈ $0.10-0.20）"""
         
         keyboard = [
-            [InlineKeyboardButton("⚡ 模擬付款測試", callback_data=f"test_payment_{order_id}")],
-            [InlineKeyboardButton("📋 查看訂單", callback_data=f"status_{order_id}")],
+            [InlineKeyboardButton("📋 查看訂單狀態", callback_data=f"status_{order_id}")],
             [InlineKeyboardButton("🏠 返回主選單", callback_data="main_menu")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -876,20 +882,22 @@ TG營銷系統團隊 敬上 ❤️
         await self.send_message(update, test_text, reply_markup=reply_markup, parse_mode='Markdown')
         
         # 第二條消息：付款金額信息
-        amount_text = f"""
-💰 **測試付款金額**
+        amount_text = f"""💰 真實 TRX 測試付款
 
-付款金額: **{test_amount} TRX**
-網絡類型: **TRON (TRX)**
+付款金額: {test_amount} TRX
+網絡類型: TRON (TRX)
 
-💡 **測試說明**:
-在實際使用中，客戶需要向收款地址發送準確的 TRX 金額
-系統會在 5-10 分鐘內自動檢測到付款並發放激活碼
-"""
+💡 真實測試說明:
+• 請向收款地址發送準確的 {test_amount} TRX
+• 系統會自動監控區塊鏈交易
+• 確認收到後 5-10 分鐘內發放激活碼
+• 這是真實的 TRX 交易，會產生實際費用
+
+⚠️ 約需 {test_amount} TRX（價值約 $0.10-0.20）"""
         
         keyboard_amount = [
             [InlineKeyboardButton("❌ 取消測試", callback_data=f"cancel_test_{order_id}"), 
-             InlineKeyboardButton("✅ 完成付款", callback_data=f"test_payment_{order_id}")],
+             InlineKeyboardButton("✅ 我已付款", callback_data=f"check_payment_{order_id}")],
             [InlineKeyboardButton("📋 查看訂單", callback_data=f"status_{order_id}")]
         ]
         reply_markup_amount = InlineKeyboardMarkup(keyboard_amount)
@@ -897,7 +905,7 @@ TG營銷系統團隊 敬上 ❤️
         await self.send_new_message(update, amount_text, reply_markup=reply_markup_amount, parse_mode='Markdown')
         
         # 第三條消息：收款地址（單獨發送，方便複製）
-        address_text = f"""🏦 測試收款地址
+        address_text = f"""🏦 TRX 測試收款地址
 
 {self.config.USDT_ADDRESS}
 
@@ -906,7 +914,10 @@ TG營銷系統團隊 敬上 ❤️
 • 選擇「複製」或「Copy」
 • 或者長按地址進行選取複製
 
-🧪 測試說明: 這是真實的收款地址，但測試模式不會產生實際費用"""
+🔴 重要: 這是真實的 TRX 交易
+• 請確保發送準確的金額: {test_amount} TRX
+• 使用 TRON 網絡進行轉賬
+• 系統會自動監控您的付款"""
         
         keyboard_address = [
             [InlineKeyboardButton("🔄 重新測試", callback_data="test_mode_buy")],
@@ -1492,9 +1503,7 @@ TG營銷系統團隊 敬上 ❤️
         elif data.startswith("check_payment_"):
             order_id = data.replace("check_payment_", "")
             await self.check_payment_status(update, context, order_id)
-        elif data.startswith("test_payment_"):
-            order_id = data.replace("test_payment_", "")
-            await self.handle_test_payment(update, context, order_id)
+        # 測試模式現在使用真實的付款檢查，不需要特殊處理
         elif data.startswith("cancel_payment_"):
             order_id = data.replace("cancel_payment_", "")
             await self.handle_cancel_payment(update, context, order_id)
