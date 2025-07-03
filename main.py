@@ -668,6 +668,7 @@ class TGMarketingBot:
 ⚠️ 重要: 請確保地址完整且正確"""
         
         keyboard3 = [
+            [InlineKeyboardButton("📋 複製錢包地址", callback_data=f"copy_address_{order_id}")],
             [InlineKeyboardButton("📋 查看訂單", callback_data=f"status_{order_id}")],
             [InlineKeyboardButton("🏠 返回主選單", callback_data="main_menu")]
         ]
@@ -952,6 +953,7 @@ TG營銷系統團隊 敬上 ❤️
 • 系統會自動監控您的付款"""
         
         keyboard_address = [
+            [InlineKeyboardButton("📋 複製錢包地址", callback_data=f"copy_address_{order_id}")],
             [InlineKeyboardButton("🔄 重新測試", callback_data="test_mode_buy")],
             [InlineKeyboardButton("🏠 返回主選單", callback_data="main_menu")]
         ]
@@ -1574,6 +1576,9 @@ TG營銷系統團隊 敬上 ❤️
             await query.answer("可疑活動詳情功能開發中", show_alert=True)
         elif data == "copy_code":
             await query.answer("💡 請長按激活碼進行復制", show_alert=True)
+        elif data.startswith("copy_address_"):
+            order_id = data.replace("copy_address_", "")
+            await self.handle_copy_address(update, context, order_id)
             
         # 兼容舊的回調
         elif data == "order":
@@ -1848,6 +1853,52 @@ TG營銷系統團隊 敬上 ❤️
         except Exception as e:
             logger.error(f"取消測試失敗: {e}")
             await update.callback_query.answer("❌ 取消測試時發生錯誤，請重試", show_alert=True)
+    
+    async def handle_copy_address(self, update: Update, context: ContextTypes.DEFAULT_TYPE, order_id: str):
+        """處理複製錢包地址請求"""
+        try:
+            user_id = update.effective_user.id
+            
+            # 獲取訂單
+            order = self.db.get_order(order_id)
+            if not order or order['user_id'] != user_id:
+                await update.callback_query.answer("❌ 訂單不存在或無權限", show_alert=True)
+                return
+            
+            # 發送錢包地址作為可複製的文本消息
+            address_copy_text = f"""📋 **錢包地址複製**
+
+💳 收款地址:
+`{self.config.USDT_ADDRESS}`
+
+📱 **手機複製步驟**:
+1. 長按上方地址文字
+2. 選擇「複製」或「Copy」
+3. 粘貼到您的錢包應用
+
+💻 **電腦複製步驟**:
+1. 選中上方地址文字
+2. 按 Ctrl+C (或 Cmd+C) 複製
+3. 粘貼到您的錢包應用
+
+⚠️ **重要提醒**:
+• 請務必複製完整地址
+• 檢查地址首尾字符是否正確
+• 錯誤地址將導致資產丟失"""
+            
+            keyboard = [
+                [InlineKeyboardButton("📋 查看訂單", callback_data=f"status_{order_id}")],
+                [InlineKeyboardButton("🏠 返回主選單", callback_data="main_menu")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await self.send_new_message(update, address_copy_text, reply_markup=reply_markup, parse_mode='Markdown')
+            await update.callback_query.answer("📋 錢包地址已發送，請複製使用", show_alert=False)
+            logger.info(f"用戶 {user_id} 請求複製訂單 {order_id} 的錢包地址")
+            
+        except Exception as e:
+            logger.error(f"複製地址失敗: {e}")
+            await update.callback_query.answer("❌ 獲取地址時發生錯誤，請重試", show_alert=True)
     
     def generate_unique_amount(self, plan_type: str) -> float:
         """生成唯一的訂單金額，避免與其他訂單衝突"""
