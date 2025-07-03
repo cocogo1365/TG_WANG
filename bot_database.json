@@ -37,6 +37,18 @@
       "used": false,
       "used_at": null,
       "used_by_device": null
+    },
+    "FREETRIAL2025ABC": {
+      "activation_code": "FREETRIAL2025ABC",
+      "plan_type": "trial",
+      "user_id": 999999999,
+      "order_id": "FREE_TRIAL_001",
+      "days": 2,
+      "created_at": "2024-12-03T10:00:00",
+      "expires_at": "2024-12-05T23:59:59",
+      "used": false,
+      "used_at": null,
+      "used_by_device": null
     }
   },
   "trial_users": [],
@@ -44,6 +56,6 @@
   "statistics": {
     "total_revenue": 0.0,
     "orders_created": 0,
-    "activations_generated": 3
+    "activations_generated": 4
   }
 }
