@@ -350,6 +350,16 @@ class TGMarketingBot:
         elif update.callback_query:
             await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode=parse_mode)
     
+    async def send_new_message(self, update: Update, text: str, reply_markup=None, parse_mode=None):
+        """發送新消息（不編輯現有消息）"""
+        user_id = update.effective_user.id
+        await self.application.bot.send_message(
+            chat_id=user_id,
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode=parse_mode
+        )
+    
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """處理 /start 命令"""
         # 安全檢查
@@ -612,21 +622,19 @@ class TGMarketingBot:
         ]
         reply_markup2 = InlineKeyboardMarkup(keyboard2)
         
-        await self.send_message(update, amount_info_text, reply_markup=reply_markup2, parse_mode='Markdown')
+        await self.send_new_message(update, amount_info_text, reply_markup=reply_markup2, parse_mode='Markdown')
         
         # 第三條消息：收款地址（單獨發送，方便手機用戶複製）
-        address_text = f"""
-🏦 **收款地址**
+        address_text = f"""🏦 收款地址
 
-`{self.config.USDT_ADDRESS}`
+{self.config.USDT_ADDRESS}
 
-📱 **如何複製地址**:
+📱 如何複製地址:
 • 點擊上方地址文字
-• 選擇"複製"或"Copy"
+• 選擇「複製」或「Copy」
 • 或者長按地址進行選取複製
 
-⚠️ **重要**: 請確保地址完整且正確
-"""
+⚠️ 重要: 請確保地址完整且正確"""
         
         keyboard3 = [
             [InlineKeyboardButton("📋 查看訂單", callback_data=f"status_{order_id}")],
@@ -634,37 +642,35 @@ class TGMarketingBot:
         ]
         reply_markup3 = InlineKeyboardMarkup(keyboard3)
         
-        await self.send_message(update, address_text, reply_markup=reply_markup3, parse_mode='Markdown')
+        await self.send_new_message(update, address_text, reply_markup=reply_markup3)
         
         # 第四條消息：客服留言
-        service_text = f"""
-👋 **親愛的客戶，您好！**
+        service_text = f"""👋 親愛的客戶，您好！
 
 感謝您選擇我們的TG營銷系統！
 
-📞 **需要幫助？**
+📞 需要幫助？
 如果您在付款過程中遇到任何問題，或需要技術支持，請隨時聯繫我們的客服團隊。
 
-🔸 **客服聯繫方式**: @your_support_username
-🔸 **服務時間**: 24小時在線服務
-🔸 **回應時間**: 通常在30分鐘內回覆
+🔸 客服聯繫方式: @your_support_username
+🔸 服務時間: 24小時在線服務
+🔸 回應時間: 通常在30分鐘內回覆
 
-💡 **溫馨提示**:
+💡 溫馨提示:
 • 付款成功後會自動發送激活碼
 • 請保留好您的訂單號以便查詢
 • 如有疑問，請提供訂單號給客服
 
-🎯 我們致力於為您提供最優質的服務體驗！
-"""
+🎯 我們致力於為您提供最優質的服務體驗！"""
         
-        keyboard3 = [
+        keyboard4 = [
             [InlineKeyboardButton("📞 聯繫客服", callback_data="contact")],
             [InlineKeyboardButton("❓ 查看幫助", callback_data="help")],
             [InlineKeyboardButton("🏠 返回主選單", callback_data="main_menu")]
         ]
-        reply_markup3 = InlineKeyboardMarkup(keyboard3)
+        reply_markup4 = InlineKeyboardMarkup(keyboard4)
         
-        await self.send_message(update, service_text, reply_markup=reply_markup3, parse_mode='Markdown')
+        await self.send_new_message(update, service_text, reply_markup=reply_markup4)
     
     async def handle_payment_confirmed(self, transaction_data: Dict):
         """處理確認的付款"""
@@ -888,21 +894,19 @@ TG營銷系統團隊 敬上 ❤️
         ]
         reply_markup_amount = InlineKeyboardMarkup(keyboard_amount)
         
-        await self.send_message(update, amount_text, reply_markup=reply_markup_amount, parse_mode='Markdown')
+        await self.send_new_message(update, amount_text, reply_markup=reply_markup_amount, parse_mode='Markdown')
         
         # 第三條消息：收款地址（單獨發送，方便複製）
-        address_text = f"""
-🏦 **測試收款地址**
+        address_text = f"""🏦 測試收款地址
 
-`{self.config.USDT_ADDRESS}`
+{self.config.USDT_ADDRESS}
 
-📱 **如何複製地址**:
+📱 如何複製地址:
 • 點擊上方地址文字
-• 選擇"複製"或"Copy"
+• 選擇「複製」或「Copy」
 • 或者長按地址進行選取複製
 
-🧪 **測試說明**: 這是真實的收款地址，但測試模式不會產生實際費用
-"""
+🧪 測試說明: 這是真實的收款地址，但測試模式不會產生實際費用"""
         
         keyboard_address = [
             [InlineKeyboardButton("🔄 重新測試", callback_data="test_mode_buy")],
@@ -910,7 +914,7 @@ TG營銷系統團隊 敬上 ❤️
         ]
         reply_markup_address = InlineKeyboardMarkup(keyboard_address)
         
-        await self.send_message(update, address_text, reply_markup=reply_markup_address, parse_mode='Markdown')
+        await self.send_new_message(update, address_text, reply_markup=reply_markup_address)
     
     async def handle_test_payment(self, update: Update, context: ContextTypes.DEFAULT_TYPE, order_id: str):
         """處理測試付款模擬"""
@@ -1619,16 +1623,14 @@ TG營銷系統團隊 敬上 ❤️
             plan_type = order.get('plan_type', 'unknown')
             plan_name = self.pricing.get(plan_type, {}).get('name', '未知方案')
             
-            cancel_text = f"""
-❌ **付款已取消**
+            cancel_text = f"""❌ 付款已取消
 
-🆔 訂單號: `{order_id}`
+🆔 訂單號: {order_id}
 📦 方案: {plan_name}
 💰 金額: {order['amount']} {self.currency}
 📅 取消時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
-✅ 訂單已成功取消，您可以重新下單
-"""
+✅ 訂單已成功取消，您可以重新下單"""
             
             keyboard = [
                 [InlineKeyboardButton("🛒 重新購買", callback_data="buy_menu")],
@@ -1636,7 +1638,7 @@ TG營銷系統團隊 敬上 ❤️
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
-            await self.send_message(update, cancel_text, reply_markup=reply_markup, parse_mode='Markdown')
+            await self.send_new_message(update, cancel_text, reply_markup=reply_markup)
             await update.callback_query.answer("✅ 訂單已取消", show_alert=False)
             logger.info(f"用戶 {user_id} 取消了訂單 {order_id}")
             
@@ -1660,20 +1662,18 @@ TG營銷系統團隊 敬上 ❤️
                 return
             
             # 發送確認請求消息
-            confirm_text = f"""
-✅ **付款確認請求已提交**
+            confirm_text = f"""✅ 付款確認請求已提交
 
-🆔 訂單號: `{order_id}`
+🆔 訂單號: {order_id}
 💰 付款金額: {order['amount']} {self.currency}
-🏦 收款地址: `{self.config.USDT_ADDRESS}`
+🏦 收款地址: {self.config.USDT_ADDRESS}
 
-🔍 **系統正在確認您的付款**:
+🔍 系統正在確認您的付款:
 • 通常需要 5-10 分鐘完成確認
 • 請耐心等待，系統會自動檢測
 • 確認成功後會立即發送激活碼
 
-⏰ 如果超過 30 分鐘仍未收到激活碼，請聯繫客服
-"""
+⏰ 如果超過 30 分鐘仍未收到激活碼，請聯繫客服"""
             
             keyboard = [
                 [InlineKeyboardButton("🔄 刷新狀態", callback_data=f"status_{order_id}")],
@@ -1682,7 +1682,7 @@ TG營銷系統團隊 敬上 ❤️
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
-            await self.send_message(update, confirm_text, reply_markup=reply_markup, parse_mode='Markdown')
+            await self.send_new_message(update, confirm_text, reply_markup=reply_markup)
             await update.callback_query.answer("✅ 付款確認請求已提交", show_alert=False)
             logger.info(f"用戶 {user_id} 提交了訂單 {order_id} 的付款確認請求")
             
@@ -1708,15 +1708,13 @@ TG營銷系統團隊 敬上 ❤️
             # 更新訂單狀態為已取消
             self.db.update_order_status(order_id, 'cancelled')
             
-            cancel_text = f"""
-❌ **測試已取消**
+            cancel_text = f"""❌ 測試已取消
 
-🆔 測試訂單號: `{order_id}`
+🆔 測試訂單號: {order_id}
 💰 測試金額: {order['amount']} TRX
 📅 取消時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
-✅ 測試訂單已取消，您可以重新測試
-"""
+✅ 測試訂單已取消，您可以重新測試"""
             
             keyboard = [
                 [InlineKeyboardButton("🧪 重新測試", callback_data="test_mode_buy")],
@@ -1724,7 +1722,7 @@ TG營銷系統團隊 敬上 ❤️
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
-            await self.send_message(update, cancel_text, reply_markup=reply_markup, parse_mode='Markdown')
+            await self.send_new_message(update, cancel_text, reply_markup=reply_markup)
             await update.callback_query.answer("✅ 測試已取消", show_alert=False)
             logger.info(f"用戶 {user_id} 取消了測試訂單 {order_id}")
             
