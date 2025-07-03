@@ -410,6 +410,10 @@ class TGMarketingBot:
             [InlineKeyboardButton("⚙️ 系統狀態", callback_data="system_status")]
         ]
         
+        # 添加測試模式按鈕
+        if self.TEST_MODE:
+            keyboard.append([InlineKeyboardButton("🧪 1 TRX 測試購買", callback_data="test_mode_buy")])
+        
         # 管理員額外按鈕
         if user_id in self.config.ADMIN_IDS:
             keyboard.append([InlineKeyboardButton("🔧 管理後台", callback_data="admin_panel")])
@@ -751,6 +755,204 @@ TG營銷系統團隊 敬上 ❤️
         await self.application.bot.send_message(
             chat_id=user_id,
             text=usage_text,
+            reply_markup=reply_markup2,
+            parse_mode='Markdown'
+        )
+    
+    async def handle_test_mode_purchase(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """處理測試模式購買 - 直接模擬收到1TRX付款並發送隨機驗證碼"""
+        if not self.TEST_MODE:
+            await update.callback_query.answer("❌ 測試模式未啟用", show_alert=True)
+            return
+            
+        user_id = update.effective_user.id
+        user = update.effective_user
+        
+        # 生成唯一的測試訂單金額 (1 TRX + 小數點)
+        test_amount = self.generate_unique_amount('weekly')  # 使用週方案作為測試
+        order_id = self.generate_order_id()
+        
+        # 創建測試訂單
+        order_data = {
+            'order_id': order_id,
+            'user_id': user_id,
+            'username': user.username,
+            'plan_type': 'weekly',
+            'amount': test_amount,
+            'days': 7,
+            'status': 'pending',
+            'created_at': datetime.now().isoformat(),
+            'expires_at': (datetime.now() + timedelta(hours=24)).isoformat()
+        }
+        
+        try:
+            self.db.create_order(order_data)
+        except Exception as e:
+            logger.error(f"Failed to create test order: {e}")
+            await update.callback_query.answer("❌ 創建測試訂單失敗", show_alert=True)
+            return
+        
+        # 顯示測試購買界面
+        test_text = f"""
+🧪 **測試模式購買**
+
+🆔 測試訂單號: `{order_id}`
+💰 付款金額: **{test_amount} TRX**
+🌐 網絡類型: **TRON (TRX)**
+📦 測試方案: 一週方案 (7天)
+
+⚡ **測試說明**:
+• 點擊"模擬付款"按鈕進行測試
+• 系統將模擬收到 {test_amount} TRX
+• 自動生成並發送隨機驗證碼
+• 測試完成後可重複測試
+
+🔍 **收款地址**: `{self.config.USDT_ADDRESS}`
+
+⚠️ **這是測試模式，不會產生實際費用**
+"""
+        
+        keyboard = [
+            [InlineKeyboardButton("⚡ 模擬付款測試", callback_data=f"test_payment_{order_id}")],
+            [InlineKeyboardButton("📋 查看訂單", callback_data=f"status_{order_id}")],
+            [InlineKeyboardButton("🏠 返回主選單", callback_data="main_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await self.send_message(update, test_text, reply_markup=reply_markup, parse_mode='Markdown')
+        
+        # 發送錢包地址信息
+        wallet_text = f"""
+💳 **測試付款信息**
+
+🏦 收款地址: `{self.config.USDT_ADDRESS}`
+💰 付款金額: **{test_amount} TRX**
+
+💡 **測試說明**:
+在實際使用中，客戶需要向此地址發送準確的 TRX 金額
+系統會在 5-10 分鐘內自動檢測到付款並發放激活碼
+"""
+        
+        await self.send_message(update, wallet_text, parse_mode='Markdown')
+    
+    async def handle_test_payment(self, update: Update, context: ContextTypes.DEFAULT_TYPE, order_id: str):
+        """處理測試付款模擬"""
+        if not self.TEST_MODE:
+            await update.callback_query.answer("❌ 測試模式未啟用", show_alert=True)
+            return
+            
+        user_id = update.effective_user.id
+        
+        # 獲取訂單
+        order = self.db.get_order(order_id)
+        if not order or order['user_id'] != user_id:
+            await update.callback_query.answer("❌ 訂單不存在或無權限", show_alert=True)
+            return
+            
+        if order['status'] != 'pending':
+            await update.callback_query.answer("❌ 訂單狀態異常", show_alert=True)
+            return
+        
+        # 模擬交易哈希
+        test_tx_hash = f"TEST_{random.randint(100000, 999999)}"
+        
+        # 更新訂單狀態為已付款
+        self.db.update_order_status(order_id, 'paid', test_tx_hash)
+        
+        # 生成激活碼
+        activation_code = self.activation_manager.generate_activation_code(
+            plan_type=order['plan_type'],
+            days=order['days'],
+            user_id=user_id,
+            order_id=order_id
+        )
+        
+        # 發送三條測試消息（模擬實際流程）
+        await self.send_test_activation_messages(order, activation_code, test_tx_hash)
+        
+        await update.callback_query.answer("✅ 測試付款模擬完成！", show_alert=True)
+    
+    async def send_test_activation_messages(self, order: Dict, activation_code: str, tx_hash: str):
+        """發送測試模式的激活碼消息"""
+        user_id = order['user_id']
+        order_id = order['order_id']
+        
+        # 第一條消息：付款確認
+        confirm_text = f"""
+✅ **測試付款確認成功！**
+
+💳 測試訂單號: `{order_id}`
+💰 付款金額: {order['amount']} TRX
+🧾 測試交易: `{tx_hash}`
+📅 確認時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+🧪 **測試模式**: 模擬收款成功
+🎉 激活碼正在生成中...
+"""
+        
+        await self.application.bot.send_message(
+            chat_id=user_id,
+            text=confirm_text,
+            parse_mode='Markdown'
+        )
+        
+        # 第二條消息：激活碼
+        activation_text = f"""
+🔑 **測試激活碼已生成！**
+
+**激活碼**: `{activation_code}`
+
+📋 **測試詳情**:
+• 測試訂單: `{order_id}`
+• 測試方案: 一週方案
+• 測試期限: 7 天
+• 狀態: ✅ 測試成功
+
+🧪 **這是測試生成的激活碼**
+"""
+        
+        keyboard = [
+            [InlineKeyboardButton("🔄 再次測試", callback_data="test_mode_buy")],
+            [InlineKeyboardButton("📞 聯繫客服", callback_data="contact")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await self.application.bot.send_message(
+            chat_id=user_id,
+            text=activation_text,
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
+        
+        # 第三條消息：隨機驗證碼（用於測試）
+        random_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        verification_text = f"""
+🎲 **隨機驗證碼測試**
+
+驗證碼: `{random_code}`
+
+📝 **測試說明**:
+這是一個隨機生成的驗證碼，用於測試系統的消息發送功能
+在實際使用中，這裡會發送客戶服務消息
+
+✅ **測試完成**！系統已成功：
+• 模擬收到 TRX 付款
+• 生成激活碼
+• 發送三條獨立消息
+• 生成隨機驗證碼
+
+🔄 您可以重複進行測試來驗證系統穩定性
+"""
+        
+        keyboard2 = [
+            [InlineKeyboardButton("🔄 重新測試", callback_data="test_mode_buy")],
+            [InlineKeyboardButton("🏠 返回主選單", callback_data="main_menu")]
+        ]
+        reply_markup2 = InlineKeyboardMarkup(keyboard2)
+        
+        await self.application.bot.send_message(
+            chat_id=user_id,
+            text=verification_text,
             reply_markup=reply_markup2,
             parse_mode='Markdown'
         )
@@ -1171,6 +1373,8 @@ TG營銷系統團隊 敬上 ❤️
             await self.show_contact_info(update, context)
         elif data == "system_status":
             await self.show_system_status(update, context)
+        elif data == "test_mode_buy":
+            await self.handle_test_mode_purchase(update, context)
             
         # 購買相關
         elif data.startswith("buy_"):
@@ -1207,6 +1411,9 @@ TG營銷系統團隊 敬上 ❤️
         elif data.startswith("check_payment_"):
             order_id = data.replace("check_payment_", "")
             await self.check_payment_status(update, context, order_id)
+        elif data.startswith("test_payment_"):
+            order_id = data.replace("test_payment_", "")
+            await self.handle_test_payment(update, context, order_id)
             
         elif data == "input_order_id":
             await query.answer("請發送訂單號進行查詢（格式：TG123456ABCD）", show_alert=True)
