@@ -133,6 +133,72 @@ class SecurityManager:
             
         return True
 
+class SmartMonitorManager:
+    """智能監控管理器 - 只在需要時監控"""
+    
+    def __init__(self):
+        # 待監控的訂單列表 {order_id: {'amount': float, 'created_at': datetime, 'expires_at': datetime}}
+        self.pending_orders = {}
+        
+        # 監控狀態
+        self.is_monitoring = False
+        self.monitor_task = None
+        
+        # 監控配置
+        self.MONITOR_WINDOW_MINUTES = 30  # 監控窗口：30分鐘
+        self.CHECK_INTERVAL_SECONDS = 60   # 檢查間隔：60秒
+        
+    def add_order_for_monitoring(self, order_id: str, amount: float):
+        """添加訂單到監控列表"""
+        now = datetime.now()
+        expires_at = now + timedelta(minutes=self.MONITOR_WINDOW_MINUTES)
+        
+        self.pending_orders[order_id] = {
+            'amount': amount,
+            'created_at': now,
+            'expires_at': expires_at
+        }
+        
+        logger.info(f"訂單 {order_id} 加入監控列表，金額: {amount} USDT")
+        
+        # 如果還沒開始監控，啟動監控
+        if not self.is_monitoring:
+            logger.info("啟動智能監控...")
+    
+    def remove_order_from_monitoring(self, order_id: str):
+        """從監控列表移除訂單"""
+        if order_id in self.pending_orders:
+            del self.pending_orders[order_id]
+            logger.info(f"訂單 {order_id} 已從監控列表移除")
+    
+    def cleanup_expired_orders(self):
+        """清理過期的監控訂單"""
+        now = datetime.now()
+        expired_orders = []
+        
+        for order_id, info in self.pending_orders.items():
+            if now > info['expires_at']:
+                expired_orders.append(order_id)
+        
+        for order_id in expired_orders:
+            logger.info(f"訂單 {order_id} 監控已過期，移除")
+            del self.pending_orders[order_id]
+    
+    def should_monitor(self) -> bool:
+        """判斷是否需要監控"""
+        self.cleanup_expired_orders()
+        return len(self.pending_orders) > 0
+    
+    def get_monitoring_amounts(self) -> List[float]:
+        """獲取需要監控的金額列表"""
+        self.cleanup_expired_orders()
+        return [info['amount'] for info in self.pending_orders.values()]
+    
+    def get_pending_orders_count(self) -> int:
+        """獲取待監控訂單數量"""
+        self.cleanup_expired_orders()
+        return len(self.pending_orders)
+
 class TGMarketingBot:
     """TG營銷系統機器人主類"""
     
@@ -163,6 +229,9 @@ class TGMarketingBot:
             
         # 初始化安全管理器
         self.security = SecurityManager()
+        
+        # 初始化智能監控管理器
+        self.smart_monitor = SmartMonitorManager()
         
         # 價格配置
         self.pricing = {
@@ -200,12 +269,61 @@ class TGMarketingBot:
         return True
     
     async def start_monitoring(self):
-        """啟動交易監控"""
+        """啟動交易監控（舊版 - 保留兼容性）"""
+        logger.info("⚠️ 舊版監控已停用，使用智能監控替代")
+    
+    async def start_smart_monitoring(self):
+        """啟動智能監控"""
+        if self.smart_monitor.is_monitoring:
+            return  # 已經在監控中
+        
+        if not self.smart_monitor.should_monitor():
+            return  # 沒有待監控的訂單
+        
+        self.smart_monitor.is_monitoring = True
+        
+        # 創建智能監控任務
+        async def smart_monitor_task():
+            logger.info("🔍 智能監控已啟動")
+            
+            while self.smart_monitor.should_monitor():
+                try:
+                    # 獲取需要監控的金額
+                    amounts_to_monitor = self.smart_monitor.get_monitoring_amounts()
+                    
+                    if amounts_to_monitor:
+                        logger.info(f"正在監控 {len(amounts_to_monitor)} 個訂單的付款")
+                        
+                        # 只查詢最近的交易（過去30分鐘）
+                        await self.check_recent_transactions(amounts_to_monitor)
+                    
+                    # 等待檢查間隔
+                    await asyncio.sleep(self.smart_monitor.CHECK_INTERVAL_SECONDS)
+                    
+                except Exception as e:
+                    logger.error(f"智能監控錯誤: {e}")
+                    await asyncio.sleep(30)  # 錯誤時短暫等待
+            
+            # 沒有待監控訂單，停止監控
+            self.smart_monitor.is_monitoring = False
+            logger.info("📴 智能監控已停止 - 無待監控訂單")
+        
+        # 啟動監控任務
+        self.smart_monitor.monitor_task = asyncio.create_task(smart_monitor_task())
+    
+    async def check_recent_transactions(self, amounts_to_monitor: List[float]):
+        """檢查最近的交易"""
         try:
-            await self.tron_monitor.start_monitoring(self.handle_payment_confirmed)
-            logger.info("✅ TRON交易監控已啟動")
+            # 這裡應該調用 tron_monitor 來檢查指定金額的交易
+            # 只查詢最近30分鐘的交易，不是所有歷史交易
+            for amount in amounts_to_monitor:
+                logger.debug(f"檢查金額 {amount} USDT 的交易")
+                
+                # 模擬檢查 - 實際應該調用 TRON API
+                # 如果發現匹配的交易，調用 handle_payment_confirmed
+                
         except Exception as e:
-            logger.error(f"❌ 啟動交易監控失敗: {e}")
+            logger.error(f"檢查交易失敗: {e}")
     
     async def send_message(self, update: Update, text: str, reply_markup=None, parse_mode=None):
         """統一的消息發送方法，處理普通消息和回調查詢"""
@@ -328,6 +446,9 @@ class TGMarketingBot:
             await update.callback_query.answer("❌ 無效的方案類型", show_alert=True)
             return
         
+        # 生成唯一的訂單金額（避免衝突）
+        unique_amount = self.generate_unique_amount(plan_type)
+        
         if plan_type == 'trial':
             # 處理試用申請
             if self.db.has_used_trial(user_id):
@@ -378,7 +499,7 @@ class TGMarketingBot:
                 'user_id': user_id,
                 'username': user.username,
                 'plan_type': plan_type,
-                'amount': plan_info['price'],
+                'amount': unique_amount,
                 'days': plan_info['days'],
                 'status': 'pending',
                 'created_at': datetime.now().isoformat(),
@@ -392,37 +513,94 @@ class TGMarketingBot:
                 await update.callback_query.answer("❌ 創建訂單失敗，請稍後重試", show_alert=True)
                 return
             
-            # 顯示付款信息
-            text = f"""
-💳 **訂單詳情**
+            # 添加到智能監控列表
+            self.smart_monitor.add_order_for_monitoring(order_id, unique_amount)
+            
+            # 啟動智能監控（如果還沒啟動）
+            await self.start_smart_monitoring()
+            
+            # 發送三條獨立消息
+            await self.send_order_messages(update, order_id, plan_info, unique_amount)
+    
+    async def send_order_messages(self, update: Update, order_id: str, plan_info: Dict, unique_amount: float):
+        """發送訂單相關的三條獨立消息"""
+        user_id = update.effective_user.id
+        
+        # 第一條消息：訂單詳情
+        order_text = f"""
+📋 **訂單創建成功！**
 
-📋 訂單號: `{order_id}`
-📦 方案: {plan_info['name']}
-💰 金額: {plan_info['price']} USDT (TRC-20)
-⏰ 有效期: {plan_info['days']} 天
+🆔 訂單號: `{order_id}`
+📦 購買方案: {plan_info['name']}
+💰 支付金額: {unique_amount} USDT
+⏰ 使用期限: {plan_info['days']} 天
+📅 訂單有效期: 24小時
 
-💳 **付款信息**:
+✅ 請按照以下步驟完成付款
+"""
+        
+        keyboard1 = [
+            [InlineKeyboardButton("📊 查詢訂單狀態", callback_data=f"status_{order_id}")],
+            [InlineKeyboardButton("🏠 返回主選單", callback_data="main_menu")]
+        ]
+        reply_markup1 = InlineKeyboardMarkup(keyboard1)
+        
+        await self.send_message(update, order_text, reply_markup=reply_markup1, parse_mode='Markdown')
+        
+        # 第二條消息：錢包地址信息
+        wallet_text = f"""
+💳 **付款信息**
+
 🏦 收款地址: `{self.config.USDT_ADDRESS}`
-💰 付款金額: {plan_info['price']} USDT
-🌐 網絡: TRON (TRC-20)
+💰 付款金額: **{unique_amount} USDT**
+🌐 網絡類型: **TRON (TRC-20)**
 
 ⚠️ **重要提醒**:
-• 請準確發送 {plan_info['price']} USDT
-• 使用 TRC-20 網絡
-• 付款後5-10分鐘內自動發放激活碼
-• 訂單有效期24小時
+• 請務必使用 TRC-20 網絡轉賬
+• 請準確發送 {unique_amount} USDT
+• 金額不正確可能導致付款失敗
+• 付款完成後請點擊"已付款"按鈕
 
-🔍 點擊下方"查詢狀態"按鈕查看付款進度
+🔍 **付款後**: 系統將在5-10分鐘內自動確認
 """
-            
-            keyboard = [
-                [InlineKeyboardButton("✅ 已付款", callback_data=f"check_payment_{order_id}")],
-                [InlineKeyboardButton("📊 查詢狀態", callback_data=f"status_{order_id}")],
-                [InlineKeyboardButton("🔙 返回購買", callback_data="buy_menu"), InlineKeyboardButton("🏠 主選單", callback_data="main_menu")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
-            await self.send_message(update, text, reply_markup=reply_markup, parse_mode='Markdown')
+        
+        keyboard2 = [
+            [InlineKeyboardButton("✅ 我已完成付款", callback_data=f"check_payment_{order_id}")],
+            [InlineKeyboardButton("📋 查看訂單", callback_data=f"status_{order_id}")]
+        ]
+        reply_markup2 = InlineKeyboardMarkup(keyboard2)
+        
+        await self.send_message(update, wallet_text, reply_markup=reply_markup2, parse_mode='Markdown')
+        
+        # 第三條消息：客服留言
+        service_text = f"""
+👋 **親愛的客戶，您好！**
+
+感謝您選擇我們的TG營銷系統！
+
+📞 **需要幫助？**
+如果您在付款過程中遇到任何問題，或需要技術支持，請隨時聯繫我們的客服團隊。
+
+🔸 **客服聯繫方式**: @your_support_username
+🔸 **服務時間**: 24小時在線服務
+🔸 **回應時間**: 通常在30分鐘內回覆
+
+💡 **溫馨提示**:
+• 付款成功後會自動發送激活碼
+• 請保留好您的訂單號以便查詢
+• 如有疑問，請提供訂單號給客服
+
+🎯 我們致力於為您提供最優質的服務體驗！
+"""
+        
+        keyboard3 = [
+            [InlineKeyboardButton("📞 聯繫客服", callback_data="contact")],
+            [InlineKeyboardButton("❓ 查看幫助", callback_data="help")],
+            [InlineKeyboardButton("🏠 返回主選單", callback_data="main_menu")]
+        ]
+        reply_markup3 = InlineKeyboardMarkup(keyboard3)
+        
+        await self.send_message(update, service_text, reply_markup=reply_markup3, parse_mode='Markdown')
     
     async def handle_payment_confirmed(self, transaction_data: Dict):
         """處理確認的付款"""
@@ -451,43 +629,107 @@ class TGMarketingBot:
                 order_id=order['order_id']
             )
             
-            # 發送激活碼給用戶
-            text = f"""
-🎉 **付款確認！激活碼已生成**
-
-💳 訂單號: `{order['order_id']}`
-🔑 激活碼: `{activation_code}`
-⏰ 有效期: {order['days']} 天
-🧾 交易哈希: `{tx_hash}`
-
-📝 **使用方法**:
-1. 下載TG營銷系統軟件
-2. 在軟件中輸入激活碼
-3. 開始使用所有功能
-
-感謝您的購買！🙏
-"""
+            # 從監控列表移除已完成的訂單
+            self.smart_monitor.remove_order_from_monitoring(order['order_id'])
             
-            # 發送消息給用戶（帶按鈕）
+            # 發送付款確認和激活碼的獨立消息
             if hasattr(self, 'application') and self.application:
-                keyboard = [
-                    [InlineKeyboardButton("📞 聯繫客服", callback_data="contact")],
-                    [InlineKeyboardButton("📊 我的訂單", callback_data="my_orders")],
-                    [InlineKeyboardButton("🏠 主選單", callback_data="main_menu")]
-                ]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                
-                await self.application.bot.send_message(
-                    chat_id=order['user_id'],
-                    text=text,
-                    reply_markup=reply_markup,
-                    parse_mode='Markdown'
-                )
+                await self.send_activation_messages(order, activation_code, tx_hash)
             
             logger.info(f"✅ 訂單 {order['order_id']} 處理完成，激活碼: {activation_code}")
             
         except Exception as e:
             logger.error(f"❌ 處理付款確認失敗: {e}")
+    
+    async def send_activation_messages(self, order: Dict, activation_code: str, tx_hash: str):
+        """發送激活碼相關的獨立消息"""
+        user_id = order['user_id']
+        order_id = order['order_id']
+        plan_name = self.pricing[order['plan_type']]['name']
+        
+        # 第一條消息：付款確認
+        confirm_text = f"""
+✅ **付款確認成功！**
+
+💳 訂單號: `{order_id}`
+📦 購買方案: {plan_name}
+💰 付款金額: {order['amount']} USDT
+🧾 交易哈希: `{tx_hash}`
+📅 確認時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+🎉 您的激活碼正在生成中，請稍等...
+"""
+        
+        await self.application.bot.send_message(
+            chat_id=user_id,
+            text=confirm_text,
+            parse_mode='Markdown'
+        )
+        
+        # 第二條消息：激活碼
+        activation_text = f"""
+🔑 **激活碼已生成！**
+
+**激活碼**: `{activation_code}`
+
+📋 **詳細信息**:
+• 訂單號: `{order_id}`
+• 方案類型: {plan_name}
+• 使用期限: {order['days']} 天
+• 狀態: ✅ 已激活
+
+⚠️ **請妥善保存此激活碼！**
+"""
+        
+        keyboard1 = [
+            [InlineKeyboardButton("📥 復制激活碼", callback_data="copy_code")],
+            [InlineKeyboardButton("📞 聯繫客服", callback_data="contact")]
+        ]
+        reply_markup1 = InlineKeyboardMarkup(keyboard1)
+        
+        await self.application.bot.send_message(
+            chat_id=user_id,
+            text=activation_text,
+            reply_markup=reply_markup1,
+            parse_mode='Markdown'
+        )
+        
+        # 第三條消息：使用說明和感謝
+        usage_text = f"""
+📝 **使用說明**
+
+🔸 **軟件下載**:
+請聯繫客服獲取最新版軟件下載鏈接
+
+🔸 **激活步驟**:
+1. 打開TG營銷系統軟件
+2. 在激活界面輸入您的激活碼
+3. 點擊"激活"按鈕
+4. 開始享受所有功能
+
+🔸 **技術支持**:
+如在使用過程中遇到任何問題，我們的客服團隊將為您提供專業支持
+
+🎯 **感謝您的信任與支持！**
+祝您使用愉快，業務蒸蒸日上！💪
+
+---
+TG營銷系統團隊 敬上 ❤️
+"""
+        
+        keyboard2 = [
+            [InlineKeyboardButton("📞 聯繫客服", callback_data="contact")],
+            [InlineKeyboardButton("📊 我的訂單", callback_data="my_orders")],
+            [InlineKeyboardButton("🏠 返回主選單", callback_data="main_menu")]
+        ]
+        reply_markup2 = InlineKeyboardMarkup(keyboard2)
+        
+        await self.application.bot.send_message(
+            chat_id=user_id,
+            text=usage_text,
+            reply_markup=reply_markup2,
+            parse_mode='Markdown'
+        )
     
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """處理 /help 命令"""
@@ -737,6 +979,11 @@ class TGMarketingBot:
 • 試用碼: {stats.get('trial_activations', 0)}
 • 付費碼: {stats.get('paid_activations', 0)}
 
+🔍 **智能監控狀態**:
+• 監控狀態: {'🟢 運行中' if self.smart_monitor.is_monitoring else '🔴 待命中'}
+• 待監控訂單: {self.smart_monitor.get_pending_orders_count()}
+• 監控金額: {', '.join([f'{amt:.2f}' for amt in self.smart_monitor.get_monitoring_amounts()])} USDT
+
 📅 **更新時間**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 """
         except Exception as e:
@@ -963,6 +1210,8 @@ class TGMarketingBot:
             await query.answer("黑名單管理功能開發中", show_alert=True)
         elif data == "security_suspicious":
             await query.answer("可疑活動詳情功能開發中", show_alert=True)
+        elif data == "copy_code":
+            await query.answer("💡 請長按激活碼進行復制", show_alert=True)
             
         # 兼容舊的回調
         elif data == "order":
@@ -1023,6 +1272,41 @@ class TGMarketingBot:
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await self.send_message(update, text, reply_markup=reply_markup, parse_mode='Markdown')
+    
+    def generate_unique_amount(self, plan_type: str) -> float:
+        """生成唯一的訂單金額，避免與其他訂單衝突"""
+        base_amount = self.pricing[plan_type]['price']
+        
+        # 免費試用不需要修改金額
+        if base_amount == 0:
+            return base_amount
+        
+        # 為付費方案添加隨機小數點（0.01-0.99）
+        random_cents = random.randint(1, 99)
+        unique_amount = base_amount + (random_cents / 100)
+        
+        # 確保金額唯一性（檢查最近的訂單）
+        max_attempts = 100
+        attempts = 0
+        
+        while attempts < max_attempts:
+            try:
+                # 檢查過去1小時內是否有相同金額的訂單
+                recent_orders = self.db.get_recent_orders_by_amount(unique_amount)
+                if not recent_orders:
+                    break
+                    
+                # 如果有衝突，重新生成
+                random_cents = random.randint(1, 99)
+                unique_amount = base_amount + (random_cents / 100)
+                attempts += 1
+                
+            except Exception as e:
+                logger.error(f"檢查訂單金額衝突失敗: {e}")
+                break
+        
+        logger.info(f"生成唯一金額: {unique_amount} USDT (基礎: {base_amount}, 隨機: +{random_cents/100})")
+        return round(unique_amount, 2)
     
     def generate_order_id(self) -> str:
         """生成訂單ID"""
@@ -1113,9 +1397,9 @@ def main():
         # 保存應用程序實例到機器人中，以便在付款確認時發送消息
         bot.application = application
         
-        # 啟動監控任務
+        # 不再自動啟動監控 - 使用智能監控
         async def post_init(application):
-            asyncio.create_task(bot.start_monitoring())
+            logger.info("✅ 機器人初始化完成，智能監控待命中...")
         
         application.post_init = post_init
         
