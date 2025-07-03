@@ -233,12 +233,29 @@ class TGMarketingBot:
         # 初始化智能監控管理器
         self.smart_monitor = SmartMonitorManager()
         
+        # 測試模式
+        self.TEST_MODE = os.getenv('TEST_MODE', 'false').lower() == 'true'
+        
         # 價格配置
-        self.pricing = {
-            'trial': {'days': 2, 'price': 0, 'name': '免費試用'},
-            'weekly': {'days': 7, 'price': 20.0, 'name': '一週方案'},
-            'monthly': {'days': 30, 'price': 70.0, 'name': '一個月方案'}
-        }
+        if self.TEST_MODE:
+            # 測試模式：使用 TRX 代替 USDT，價格設為 1 TRX
+            self.pricing = {
+                'trial': {'days': 2, 'price': 0, 'name': '免費試用'},
+                'weekly': {'days': 7, 'price': 1.0, 'name': '測試方案(1 TRX)'},
+                'monthly': {'days': 30, 'price': 1.0, 'name': '測試方案(1 TRX)'}
+            }
+            self.currency = 'TRX'
+            self.currency_name = 'TRX'
+            logger.warning("⚠️ 測試模式已啟用 - 使用 TRX 支付")
+        else:
+            # 正式模式：使用 USDT
+            self.pricing = {
+                'trial': {'days': 2, 'price': 0, 'name': '免費試用'},
+                'weekly': {'days': 7, 'price': 20.0, 'name': '一週方案'},
+                'monthly': {'days': 30, 'price': 70.0, 'name': '一個月方案'}
+            }
+            self.currency = 'USDT'
+            self.currency_name = 'USDT (TRC-20)'
         
         # 監控將在應用程序啟動後開始
     
@@ -365,17 +382,21 @@ class TGMarketingBot:
 
 💎 **靈活的價格方案**
 🆓 **免費試用** - 2天完整體驗
-📅 **一週方案** - 20 USDT 
-📅 **一個月方案** - 70 USDT
+📅 **一週方案** - {self.pricing['weekly']['price']} {self.currency}
+📅 **一個月方案** - {self.pricing['monthly']['price']} {self.currency}
 
 ⚡ **特色優勢**
-• USDT (TRC-20) 安全支付
+• {self.currency_name} 安全支付
 • 即時自動發放激活碼
 • 24/7 客服支持
 • 簡單易用的操作界面
 
 🎁 **立即開始使用下方按鈕！**
 """
+        
+        # 測試模式提示
+        if self.TEST_MODE:
+            welcome_text += "\n\n⚠️ **測試模式已啟用** - 使用 1 TRX 進行支付測試"
         
         if trial_used:
             welcome_text += "\n⚠️ 您已使用過免費試用，請選擇付費方案"
@@ -413,18 +434,21 @@ class TGMarketingBot:
             keyboard.append([InlineKeyboardButton("🎁 申請免費試用", callback_data="buy_trial")])
         
         # 付費方案
-        text += "📅 **一週方案** - 20 USDT\n"
+        weekly_price = self.pricing['weekly']['price']
+        monthly_price = self.pricing['monthly']['price']
+        
+        text += f"📅 **一週方案** - {weekly_price} {self.currency}\n"
         text += "   7天完整使用權限\n"
         text += "   所有功能無限制\n\n"
-        keyboard.append([InlineKeyboardButton("💳 購買一週 (20 USDT)", callback_data="buy_weekly")])
+        keyboard.append([InlineKeyboardButton(f"💳 購買一週 ({weekly_price} {self.currency})", callback_data="buy_weekly")])
         
-        text += "📅 **一個月方案** - 70 USDT\n"
+        text += f"📅 **一個月方案** - {monthly_price} {self.currency}\n"
         text += "   30天完整使用權限\n"
         text += "   所有功能無限制\n"
         text += "   最優價格比例\n\n"
-        keyboard.append([InlineKeyboardButton("💳 購買一個月 (70 USDT)", callback_data="buy_monthly")])
+        keyboard.append([InlineKeyboardButton(f"💳 購買一個月 ({monthly_price} {self.currency})", callback_data="buy_monthly")])
         
-        text += "💡 使用 USDT (TRC-20) 支付，自動發放激活碼"
+        text += f"💡 使用 {self.currency_name} 支付，自動發放激活碼"
         
         keyboard.append([InlineKeyboardButton("🔙 返回主選單", callback_data="main_menu")])
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -532,7 +556,7 @@ class TGMarketingBot:
 
 🆔 訂單號: `{order_id}`
 📦 購買方案: {plan_info['name']}
-💰 支付金額: {unique_amount} USDT
+💰 支付金額: {unique_amount} {self.currency}
 ⏰ 使用期限: {plan_info['days']} 天
 📅 訂單有效期: 24小時
 
@@ -552,12 +576,12 @@ class TGMarketingBot:
 💳 **付款信息**
 
 🏦 收款地址: `{self.config.USDT_ADDRESS}`
-💰 付款金額: **{unique_amount} USDT**
-🌐 網絡類型: **TRON (TRC-20)**
+💰 付款金額: **{unique_amount} {self.currency}**
+🌐 網絡類型: **TRON {'(TRX)' if self.TEST_MODE else '(TRC-20)'}**
 
 ⚠️ **重要提醒**:
-• 請務必使用 TRC-20 網絡轉賬
-• 請準確發送 {unique_amount} USDT
+• 請務必使用 TRON 網絡轉賬
+• 請準確發送 {unique_amount} {self.currency}
 • 金額不正確可能導致付款失敗
 • 付款完成後請點擊"已付款"按鈕
 
@@ -744,12 +768,12 @@ TG營銷系統團隊 敬上 ❤️
 
 💰 **價格方案**:
 • 🆓 免費試用: 2天 (每帳戶限用一次)
-• 📅 一週方案: 20 USDT (7天)
-• 📅 一個月方案: 70 USDT (30天)
+• 📅 一週方案: {self.pricing['weekly']['price']} {self.currency} (7天)
+• 📅 一個月方案: {self.pricing['monthly']['price']} {self.currency} (30天)
 
 💳 **付款流程**:
 1. 選擇購買方案
-2. 發送 USDT (TRC-20) 到指定地址
+2. 發送 {self.currency_name} 到指定地址
 3. 點擊"已付款"確認
 4. 5-10分鐘內自動收到激活碼
 
@@ -1281,9 +1305,15 @@ TG營銷系統團隊 敬上 ❤️
         if base_amount == 0:
             return base_amount
         
-        # 為付費方案添加隨機小數點（0.01-0.99）
-        random_cents = random.randint(1, 99)
-        unique_amount = base_amount + (random_cents / 100)
+        # 為付費方案添加隨機小數點
+        if self.TEST_MODE:
+            # 測試模式：添加更小的隨機數（0.001-0.099）避免 TRX 金額過大
+            random_milli = random.randint(1, 99)
+            unique_amount = base_amount + (random_milli / 1000)
+        else:
+            # 正式模式：添加正常隨機數（0.01-0.99）
+            random_cents = random.randint(1, 99)
+            unique_amount = base_amount + (random_cents / 100)
         
         # 確保金額唯一性（檢查最近的訂單）
         max_attempts = 100
@@ -1297,15 +1327,22 @@ TG營銷系統團隊 敬上 ❤️
                     break
                     
                 # 如果有衝突，重新生成
-                random_cents = random.randint(1, 99)
-                unique_amount = base_amount + (random_cents / 100)
+                if self.TEST_MODE:
+                    random_milli = random.randint(1, 99)
+                    unique_amount = base_amount + (random_milli / 1000)
+                else:
+                    random_cents = random.randint(1, 99)
+                    unique_amount = base_amount + (random_cents / 100)
                 attempts += 1
                 
             except Exception as e:
                 logger.error(f"檢查訂單金額衝突失敗: {e}")
                 break
         
-        logger.info(f"生成唯一金額: {unique_amount} USDT (基礎: {base_amount}, 隨機: +{random_cents/100})")
+        if self.TEST_MODE:
+            logger.info(f"生成唯一金額: {unique_amount} TRX (基礎: {base_amount})")
+        else:
+            logger.info(f"生成唯一金額: {unique_amount} USDT (基礎: {base_amount})")
         return round(unique_amount, 2)
     
     def generate_order_id(self) -> str:
