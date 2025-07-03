@@ -620,14 +620,17 @@ class TGMarketingBot:
 
 `{self.config.USDT_ADDRESS}`
 
-📱 **手機用戶提示**:
-點擊上方地址可直接複製
-長按地址選擇"複製"即可
+📱 **如何複製地址**:
+• 點擊上方地址文字
+• 選擇"複製"或"Copy"
+• 或者長按地址進行選取複製
+
+⚠️ **重要**: 請確保地址完整且正確
 """
         
         keyboard3 = [
-            [InlineKeyboardButton("📋 複製地址", url=f"https://t.me/share/text?text={self.config.USDT_ADDRESS}")],
-            [InlineKeyboardButton("📋 查看訂單", callback_data=f"status_{order_id}")]
+            [InlineKeyboardButton("📋 查看訂單", callback_data=f"status_{order_id}")],
+            [InlineKeyboardButton("🏠 返回主選單", callback_data="main_menu")]
         ]
         reply_markup3 = InlineKeyboardMarkup(keyboard3)
         
@@ -889,17 +892,20 @@ TG營銷系統團隊 敬上 ❤️
         
         # 第三條消息：收款地址（單獨發送，方便複製）
         address_text = f"""
-🏦 **收款地址**
+🏦 **測試收款地址**
 
 `{self.config.USDT_ADDRESS}`
 
-📱 **手機用戶提示**:
-點擊上方地址可直接複製
-長按地址選擇"複製"即可
+📱 **如何複製地址**:
+• 點擊上方地址文字
+• 選擇"複製"或"Copy"
+• 或者長按地址進行選取複製
+
+🧪 **測試說明**: 這是真實的收款地址，但測試模式不會產生實際費用
 """
         
         keyboard_address = [
-            [InlineKeyboardButton("📋 複製地址", url=f"https://t.me/share/text?text={self.config.USDT_ADDRESS}")],
+            [InlineKeyboardButton("🔄 重新測試", callback_data="test_mode_buy")],
             [InlineKeyboardButton("🏠 返回主選單", callback_data="main_menu")]
         ]
         reply_markup_address = InlineKeyboardMarkup(keyboard_address)
