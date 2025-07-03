@@ -215,6 +215,19 @@ class Database:
         
         return stats
     
+    def get_recent_orders_by_amount(self, amount: float, hours: int = 1) -> List[Dict]:
+        """獲取指定時間內相同金額的訂單"""
+        cutoff_time = datetime.now() - timedelta(hours=hours)
+        matching_orders = []
+        
+        for order in self.data['orders'].values():
+            order_time = datetime.fromisoformat(order['created_at'])
+            if (order_time > cutoff_time and 
+                abs(order['amount'] - amount) < 0.001):  # 允許極小誤差
+                matching_orders.append(order)
+        
+        return matching_orders
+    
     def get_recent_orders(self, days: int = 7) -> List[Dict]:
         """獲取最近的訂單"""
         cutoff_date = datetime.now() - timedelta(days=days)
