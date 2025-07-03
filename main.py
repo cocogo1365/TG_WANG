@@ -1592,61 +1592,75 @@ TG營銷系統團隊 敬上 ❤️
     
     async def handle_cancel_payment(self, update: Update, context: ContextTypes.DEFAULT_TYPE, order_id: str):
         """處理取消付款"""
-        user_id = update.effective_user.id
-        
-        # 獲取訂單
-        order = self.db.get_order(order_id)
-        if not order or order['user_id'] != user_id:
-            await update.callback_query.answer("❌ 訂單不存在或無權限", show_alert=True)
-            return
+        try:
+            user_id = update.effective_user.id
             
-        if order['status'] != 'pending':
-            await update.callback_query.answer("❌ 訂單狀態異常，無法取消", show_alert=True)
-            return
-        
-        # 更新訂單狀態為已取消
-        self.db.update_order_status(order_id, 'cancelled')
-        
-        # 從智能監控中移除
-        if hasattr(self, 'smart_monitor'):
-            self.smart_monitor.remove_order_from_monitoring(order_id)
-        
-        cancel_text = f"""
+            # 獲取訂單
+            order = self.db.get_order(order_id)
+            if not order or order['user_id'] != user_id:
+                await update.callback_query.answer("❌ 訂單不存在或無權限", show_alert=True)
+                return
+                
+            if order['status'] != 'pending':
+                await update.callback_query.answer("❌ 訂單狀態異常，無法取消", show_alert=True)
+                return
+            
+            # 更新訂單狀態為已取消
+            self.db.update_order_status(order_id, 'cancelled')
+            
+            # 從智能監控中移除
+            try:
+                if hasattr(self, 'smart_monitor'):
+                    self.smart_monitor.remove_order_from_monitoring(order_id)
+            except Exception as e:
+                logger.warning(f"移除監控失敗: {e}")
+            
+            # 安全獲取方案名稱
+            plan_type = order.get('plan_type', 'unknown')
+            plan_name = self.pricing.get(plan_type, {}).get('name', '未知方案')
+            
+            cancel_text = f"""
 ❌ **付款已取消**
 
 🆔 訂單號: `{order_id}`
-📦 方案: {self.pricing[order['plan_type']]['name']}
+📦 方案: {plan_name}
 💰 金額: {order['amount']} {self.currency}
 📅 取消時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
 ✅ 訂單已成功取消，您可以重新下單
 """
-        
-        keyboard = [
-            [InlineKeyboardButton("🛒 重新購買", callback_data="buy_menu")],
-            [InlineKeyboardButton("🏠 返回主選單", callback_data="main_menu")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await self.send_message(update, cancel_text, reply_markup=reply_markup, parse_mode='Markdown')
-        logger.info(f"用戶 {user_id} 取消了訂單 {order_id}")
+            
+            keyboard = [
+                [InlineKeyboardButton("🛒 重新購買", callback_data="buy_menu")],
+                [InlineKeyboardButton("🏠 返回主選單", callback_data="main_menu")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await self.send_message(update, cancel_text, reply_markup=reply_markup, parse_mode='Markdown')
+            await update.callback_query.answer("✅ 訂單已取消", show_alert=False)
+            logger.info(f"用戶 {user_id} 取消了訂單 {order_id}")
+            
+        except Exception as e:
+            logger.error(f"取消付款失敗: {e}")
+            await update.callback_query.answer("❌ 取消付款時發生錯誤，請重試", show_alert=True)
     
     async def handle_complete_payment(self, update: Update, context: ContextTypes.DEFAULT_TYPE, order_id: str):
         """處理完成付款 - 實際上就是發送確認請求"""
-        user_id = update.effective_user.id
-        
-        # 獲取訂單
-        order = self.db.get_order(order_id)
-        if not order or order['user_id'] != user_id:
-            await update.callback_query.answer("❌ 訂單不存在或無權限", show_alert=True)
-            return
+        try:
+            user_id = update.effective_user.id
             
-        if order['status'] != 'pending':
-            await update.callback_query.answer("❌ 訂單狀態異常", show_alert=True)
-            return
-        
-        # 發送確認請求消息
-        confirm_text = f"""
+            # 獲取訂單
+            order = self.db.get_order(order_id)
+            if not order or order['user_id'] != user_id:
+                await update.callback_query.answer("❌ 訂單不存在或無權限", show_alert=True)
+                return
+                
+            if order['status'] != 'pending':
+                await update.callback_query.answer("❌ 訂單狀態異常", show_alert=True)
+                return
+            
+            # 發送確認請求消息
+            confirm_text = f"""
 ✅ **付款確認請求已提交**
 
 🆔 訂單號: `{order_id}`
@@ -1660,36 +1674,41 @@ TG營銷系統團隊 敬上 ❤️
 
 ⏰ 如果超過 30 分鐘仍未收到激活碼，請聯繫客服
 """
-        
-        keyboard = [
-            [InlineKeyboardButton("🔄 刷新狀態", callback_data=f"status_{order_id}")],
-            [InlineKeyboardButton("📞 聯繫客服", callback_data="contact")],
-            [InlineKeyboardButton("🏠 主選單", callback_data="main_menu")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await self.send_message(update, confirm_text, reply_markup=reply_markup, parse_mode='Markdown')
-        await update.callback_query.answer("✅ 付款確認請求已提交，系統正在處理", show_alert=True)
-        logger.info(f"用戶 {user_id} 提交了訂單 {order_id} 的付款確認請求")
+            
+            keyboard = [
+                [InlineKeyboardButton("🔄 刷新狀態", callback_data=f"status_{order_id}")],
+                [InlineKeyboardButton("📞 聯繫客服", callback_data="contact")],
+                [InlineKeyboardButton("🏠 主選單", callback_data="main_menu")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await self.send_message(update, confirm_text, reply_markup=reply_markup, parse_mode='Markdown')
+            await update.callback_query.answer("✅ 付款確認請求已提交", show_alert=False)
+            logger.info(f"用戶 {user_id} 提交了訂單 {order_id} 的付款確認請求")
+            
+        except Exception as e:
+            logger.error(f"完成付款失敗: {e}")
+            await update.callback_query.answer("❌ 處理付款時發生錯誤，請重試", show_alert=True)
     
     async def handle_cancel_test(self, update: Update, context: ContextTypes.DEFAULT_TYPE, order_id: str):
         """處理取消測試"""
-        user_id = update.effective_user.id
-        
-        # 獲取訂單
-        order = self.db.get_order(order_id)
-        if not order or order['user_id'] != user_id:
-            await update.callback_query.answer("❌ 測試訂單不存在或無權限", show_alert=True)
-            return
+        try:
+            user_id = update.effective_user.id
             
-        if order['status'] != 'pending':
-            await update.callback_query.answer("❌ 測試訂單狀態異常", show_alert=True)
-            return
-        
-        # 更新訂單狀態為已取消
-        self.db.update_order_status(order_id, 'cancelled')
-        
-        cancel_text = f"""
+            # 獲取訂單
+            order = self.db.get_order(order_id)
+            if not order or order['user_id'] != user_id:
+                await update.callback_query.answer("❌ 測試訂單不存在或無權限", show_alert=True)
+                return
+                
+            if order['status'] != 'pending':
+                await update.callback_query.answer("❌ 測試訂單狀態異常", show_alert=True)
+                return
+            
+            # 更新訂單狀態為已取消
+            self.db.update_order_status(order_id, 'cancelled')
+            
+            cancel_text = f"""
 ❌ **測試已取消**
 
 🆔 測試訂單號: `{order_id}`
@@ -1698,15 +1717,20 @@ TG營銷系統團隊 敬上 ❤️
 
 ✅ 測試訂單已取消，您可以重新測試
 """
-        
-        keyboard = [
-            [InlineKeyboardButton("🧪 重新測試", callback_data="test_mode_buy")],
-            [InlineKeyboardButton("🏠 返回主選單", callback_data="main_menu")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await self.send_message(update, cancel_text, reply_markup=reply_markup, parse_mode='Markdown')
-        logger.info(f"用戶 {user_id} 取消了測試訂單 {order_id}")
+            
+            keyboard = [
+                [InlineKeyboardButton("🧪 重新測試", callback_data="test_mode_buy")],
+                [InlineKeyboardButton("🏠 返回主選單", callback_data="main_menu")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await self.send_message(update, cancel_text, reply_markup=reply_markup, parse_mode='Markdown')
+            await update.callback_query.answer("✅ 測試已取消", show_alert=False)
+            logger.info(f"用戶 {user_id} 取消了測試訂單 {order_id}")
+            
+        except Exception as e:
+            logger.error(f"取消測試失敗: {e}")
+            await update.callback_query.answer("❌ 取消測試時發生錯誤，請重試", show_alert=True)
     
     def generate_unique_amount(self, plan_type: str) -> float:
         """生成唯一的訂單金額，避免與其他訂單衝突"""
