@@ -1553,32 +1553,110 @@ TG營銷系統團隊 敬上 ❤️
     
     async def check_payment_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE, order_id: str):
         """檢查付款狀態"""
-        order = self.db.get_order(order_id)
-        if not order or order['user_id'] != update.effective_user.id:
-            await update.callback_query.answer("❌ 訂單不存在或無權限查看", show_alert=True)
+        try:
+            user_id = update.effective_user.id
+            logger.info(f"用戶 {user_id} 請求檢查訂單 {order_id} 的付款狀態")
+            
+            order = self.db.get_order(order_id)
+            if not order:
+                logger.warning(f"訂單 {order_id} 不存在")
+                await update.callback_query.answer("❌ 訂單不存在", show_alert=True)
+                return
+                
+            if order['user_id'] != user_id:
+                logger.warning(f"用戶 {user_id} 無權限查看訂單 {order_id}")
+                await update.callback_query.answer("❌ 無權限查看此訂單", show_alert=True)
+                return
+            
+            logger.info(f"訂單 {order_id} 當前狀態: {order['status']}")
+            
+        except Exception as e:
+            logger.error(f"檢查付款狀態時發生錯誤: {e}")
+            await update.callback_query.answer("❌ 檢查付款狀態時發生錯誤", show_alert=True)
             return
         
         if order['status'] == 'paid':
-            activation_code = self.activation_manager.get_activation_code_by_order(order_id)
-            text = f"""
-✅ **付款已確認！**
+            try:
+                activation_code = self.activation_manager.get_activation_code_by_order(order_id)
+                if not activation_code:
+                    activation_code = "未找到激活碼，請聯繫客服"
+                
+                # 安全獲取方案名稱
+                plan_type = order.get('plan_type', 'unknown')
+                plan_name = self.pricing.get(plan_type, {}).get('name', '未知方案')
+                
+                text = f"""✅ 付款已確認！
 
-🔑 激活碼: `{activation_code}`
-📦 方案: {self.pricing[order['plan_type']]['name']}
+🔑 激活碼: {activation_code}
+📦 方案: {plan_name}
 ⏰ 有效期: {order['days']} 天
 
-請保存好您的激活碼！
-"""
+請保存好您的激活碼！"""
+                
+                keyboard = [
+                    [InlineKeyboardButton("📞 聯繫客服", callback_data="contact")],
+                    [InlineKeyboardButton("📊 我的訂單", callback_data="my_orders")],
+                    [InlineKeyboardButton("🏠 主選單", callback_data="main_menu")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                await self.send_new_message(update, text, reply_markup=reply_markup)
+                await update.callback_query.answer("✅ 付款已確認", show_alert=False)
+                logger.info(f"用戶 {user_id} 的訂單 {order_id} 付款已確認")
+                
+            except Exception as e:
+                logger.error(f"顯示付款確認時發生錯誤: {e}")
+                await update.callback_query.answer("❌ 顯示付款信息時發生錯誤", show_alert=True)
+                
+        elif order['status'] == 'pending':
+            # 訂單仍在等待付款
+            status_text = f"""🔍 付款狀態檢查
+
+🆔 訂單號: {order_id}
+💰 付款金額: {order['amount']} {self.currency}
+📅 創建時間: {order['created_at'][:19]}
+⏳ 當前狀態: 等待付款確認
+
+💡 系統正在檢查您的付款:
+• 區塊鏈確認通常需要 5-10 分鐘
+• 請確保已發送準確的金額
+• 如果已付款超過 30 分鐘，請聯繫客服
+
+📍 付款地址: {self.config.USDT_ADDRESS}"""
+            
             keyboard = [
+                [InlineKeyboardButton("🔄 重新檢查", callback_data=f"check_payment_{order_id}")],
                 [InlineKeyboardButton("📞 聯繫客服", callback_data="contact")],
-                [InlineKeyboardButton("📊 我的訂單", callback_data="my_orders")],
                 [InlineKeyboardButton("🏠 主選單", callback_data="main_menu")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
-            await self.send_message(update, text, reply_markup=reply_markup, parse_mode='Markdown')
+            await self.send_new_message(update, status_text, reply_markup=reply_markup)
+            await update.callback_query.answer("🔍 正在檢查付款狀態", show_alert=False)
+            logger.info(f"用戶 {user_id} 檢查了待付款訂單 {order_id}")
+            
+        elif order['status'] == 'cancelled':
+            # 訂單已取消
+            cancel_text = f"""❌ 訂單已取消
+
+🆔 訂單號: {order_id}
+📅 取消時間: {order.get('updated_at', '未知')[:19]}
+
+您可以重新創建新的訂單"""
+            
+            keyboard = [
+                [InlineKeyboardButton("🛒 重新購買", callback_data="buy_menu")],
+                [InlineKeyboardButton("🏠 主選單", callback_data="main_menu")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await self.send_new_message(update, cancel_text, reply_markup=reply_markup)
+            await update.callback_query.answer("訂單已取消", show_alert=False)
+            
         else:
-            await update.callback_query.answer("💰 正在檢查付款狀態，請稍候...", show_alert=True)
+            # 其他狀態
+            await update.callback_query.answer(f"訂單狀態: {order['status']}", show_alert=True)
+            logger.warning(f"未處理的訂單狀態: {order['status']} for order {order_id}")
     
     async def show_user_orders(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """顯示用戶訂單"""
