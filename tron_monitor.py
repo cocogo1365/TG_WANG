@@ -354,25 +354,70 @@ class TronMonitor:
     async def hex_to_base58(self, hex_address: str) -> str:
         """將十六進制地址轉換為 Base58 地址"""
         try:
-            # 這是一個簡化的實現，實際項目中建議使用專門的庫
-            # 如 tronpy 或 pytron
-            
             # 移除 0x 前綴
             if hex_address.startswith('0x'):
                 hex_address = hex_address[2:]
             
-            # 轉換為字節
-            addr_bytes = bytes.fromhex(hex_address)
+            # 如果已經是完整的 TRON 地址格式，直接返回
+            if len(hex_address) == 42 and hex_address.startswith('41'):
+                # 實現簡化的 Base58 轉換 (適用於測試)
+                return await self.simple_hex_to_tron_address(hex_address)
             
-            # 這裡應該實現完整的 Base58Check 編碼
-            # 為了簡化，我們返回一個占位符
-            # 在實際部署時，請使用 tronpy 庫進行正確的地址轉換
+            # 如果是40位地址，加上TRON前綴41
+            if len(hex_address) == 40:
+                hex_address = '41' + hex_address
+                return await self.simple_hex_to_tron_address(hex_address)
             
-            return "T" + hex_address  # 占位符實現
+            # 其他情況返回原地址
+            return hex_address
             
         except Exception as e:
             logger.error(f"❌ 地址轉換錯誤: {e}")
-            return ""
+            return hex_address
+
+    async def simple_hex_to_tron_address(self, hex_address: str) -> str:
+        """簡化的十六進制到TRON地址轉換"""
+        try:
+            import hashlib
+            
+            # 將十六進制轉換為字節
+            addr_bytes = bytes.fromhex(hex_address)
+            
+            # 雙重SHA256哈希用於校驗和
+            hash1 = hashlib.sha256(addr_bytes).digest()
+            hash2 = hashlib.sha256(hash1).digest()
+            
+            # 取前4字節作為校驗和
+            checksum = hash2[:4]
+            
+            # 組合地址和校驗和
+            full_address = addr_bytes + checksum
+            
+            # Base58編碼字符表
+            alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+            
+            # 轉換為大整數
+            num = int.from_bytes(full_address, 'big')
+            
+            # Base58編碼
+            encoded = ""
+            while num > 0:
+                num, remainder = divmod(num, 58)
+                encoded = alphabet[remainder] + encoded
+            
+            # 處理前導零字節
+            for byte in full_address:
+                if byte == 0:
+                    encoded = '1' + encoded
+                else:
+                    break
+            
+            return encoded
+            
+        except Exception as e:
+            logger.error(f"❌ 簡化地址轉換錯誤: {e}")
+            # 如果轉換失敗，返回原始地址
+            return hex_address
     
     async def get_account_transactions(self, limit: int = 20) -> List[Dict]:
         """獲取賬戶交易記錄"""
@@ -417,12 +462,17 @@ class TronMonitor:
                             # 檢查是否是 TRX 轉賬
                             for contract in tx.get('raw_data', {}).get('contract', []):
                                 if contract.get('type') == 'TransferContract':
+                                    contract_value = contract.get('parameter', {}).get('value', {})
+                                    # 轉換地址格式
+                                    from_addr = await self.hex_to_base58(contract_value.get('owner_address', ''))
+                                    to_addr = await self.hex_to_base58(contract_value.get('to_address', ''))
+                                    
                                     trx_transactions.append({
                                         'transaction_id': tx.get('txID'),
                                         'block_timestamp': tx.get('block_timestamp'),
-                                        'from': contract.get('parameter', {}).get('value', {}).get('owner_address'),
-                                        'to': contract.get('parameter', {}).get('value', {}).get('to_address'),
-                                        'value': contract.get('parameter', {}).get('value', {}).get('amount', 0)
+                                        'from': from_addr,
+                                        'to': to_addr,
+                                        'value': contract_value.get('amount', 0)
                                     })
                         return trx_transactions
                     else:
