@@ -36,7 +36,18 @@ class TronMonitor:
         # 獲取當前區塊高度
         self.last_checked_block = await self.get_latest_block_number()
         currency = "TRX" if self.test_mode else "USDT"
+        
+        if self.last_checked_block == 0:
+            logger.error(f"❌ 無法連接到 TronGrid API，監控啟動失敗")
+            logger.error(f"   請檢查 TRONGRID_API_KEY 環境變量是否正確設置")
+            logger.error(f"   API URL: {self.config.TRONGRID_API_URL}")
+            self.is_monitoring = False
+            return
+        
         logger.info(f"🔍 開始監控 {currency} 交易，從區塊 {self.last_checked_block} 開始")
+        logger.info(f"🔑 API 密鑰: {'已設置' if self.config.TRONGRID_API_KEY else '未設置（使用公共API）'}")
+        logger.info(f"📧 監控地址: {self.config.USDT_ADDRESS}")
+        logger.info(f"🧪 測試模式: {'開啟' if self.test_mode else '關閉'}")
         
         while self.is_monitoring:
             try:
@@ -58,15 +69,36 @@ class TronMonitor:
                 url = f"{self.config.TRONGRID_API_URL}/wallet/getnowblock"
                 headers = self.config.get_trongrid_headers()
                 
+                logger.debug(f"🌐 請求 TronGrid API: {url}")
+                
                 async with session.post(url, headers=headers) as response:
                     if response.status == 200:
                         data = await response.json()
-                        return data.get('block_header', {}).get('raw_data', {}).get('number', 0)
+                        block_number = data.get('block_header', {}).get('raw_data', {}).get('number', 0)
+                        if block_number > 0:
+                            logger.debug(f"✅ 成功獲取區塊號: {block_number}")
+                        return block_number
+                    elif response.status == 429:
+                        logger.error(f"❌ TronGrid API 請求頻率限制: HTTP {response.status}")
+                        logger.error(f"   提示: 考慮設置 TRONGRID_API_KEY 提高限制")
+                        return 0
+                    elif response.status == 403:
+                        logger.error(f"❌ TronGrid API 訪問被拒絕: HTTP {response.status}")
+                        logger.error(f"   提示: 檢查 TRONGRID_API_KEY 是否正確")
+                        return 0
                     else:
                         logger.error(f"❌ 獲取最新區塊失敗: HTTP {response.status}")
+                        try:
+                            error_text = await response.text()
+                            logger.error(f"   錯誤詳情: {error_text[:200]}")
+                        except:
+                            pass
                         return 0
+        except aiohttp.ClientError as e:
+            logger.error(f"❌ TronGrid API 連接錯誤: {e}")
+            return 0
         except Exception as e:
-            logger.error(f"❌ 獲取最新區塊時發生錯誤: {e}")
+            logger.error(f"❌ 獲取最新區塊時發生未知錯誤: {e}")
             return 0
     
     async def check_new_transactions(self):
