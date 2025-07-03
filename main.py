@@ -1555,8 +1555,12 @@ TG營銷系統團隊 敬上 ❤️
         while attempts < max_attempts:
             try:
                 # 檢查過去1小時內是否有相同金額的訂單
-                recent_orders = self.db.get_recent_orders_by_amount(unique_amount)
-                if not recent_orders:
+                if hasattr(self.db, 'get_recent_orders_by_amount'):
+                    recent_orders = self.db.get_recent_orders_by_amount(unique_amount)
+                    if not recent_orders:
+                        break
+                else:
+                    logger.error("Database 類缺少 get_recent_orders_by_amount 方法")
                     break
                     
                 # 如果有衝突，重新生成
@@ -1570,6 +1574,8 @@ TG營銷系統團隊 敬上 ❤️
                 
             except Exception as e:
                 logger.error(f"檢查訂單金額衝突失敗: {e}")
+                logger.error(f"Database 對象類型: {type(self.db)}")
+                logger.error(f"Database 可用方法: {[m for m in dir(self.db) if not m.startswith('_')]}")
                 break
         
         if self.TEST_MODE:
