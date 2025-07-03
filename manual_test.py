@@ -20,7 +20,7 @@ def test_api_manual():
     
     print(f"🔑 API 密鑰: {api_key[:10]}...")
     
-    url = "https://apilist.tronscanapi.com/api/block/latest"
+    url = "https://apilist.tronscanapi.com/api/block"
     
     # 構建請求
     headers = {
@@ -43,7 +43,13 @@ def test_api_manual():
             
             if status_code == 200:
                 data = json.loads(response_data.decode('utf-8'))
-                block_num = data.get('number', 0)
+                # 處理可能的數組返回
+                if isinstance(data, list) and len(data) > 0:
+                    block_num = data[0].get('number', 0)
+                elif isinstance(data, dict):
+                    block_num = data.get('number', 0)
+                else:
+                    block_num = 0
                 print(f"✅ API 連接成功!")
                 print(f"📊 當前區塊: {block_num}")
                 

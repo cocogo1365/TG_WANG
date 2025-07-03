@@ -66,7 +66,7 @@ class TronMonitor:
         """獲取最新區塊號"""
         try:
             async with aiohttp.ClientSession() as session:
-                url = f"{self.config.TRONGRID_API_URL}/api/block/latest"
+                url = f"{self.config.TRONGRID_API_URL}/api/block"
                 headers = self.config.get_trongrid_headers()
                 
                 logger.debug(f"🌐 請求 TronGrid API: {url}")
@@ -74,9 +74,18 @@ class TronMonitor:
                 async with session.get(url, headers=headers) as response:
                     if response.status == 200:
                         data = await response.json()
-                        block_number = data.get('number', 0)
+                        # TronScan API 可能返回數組，取第一個或最新的區塊
+                        if isinstance(data, list) and len(data) > 0:
+                            block_number = data[0].get('number', 0)
+                        elif isinstance(data, dict):
+                            block_number = data.get('number', 0)
+                        else:
+                            block_number = 0
+                            
                         if block_number > 0:
                             logger.debug(f"✅ 成功獲取區塊號: {block_number}")
+                        else:
+                            logger.warning(f"⚠️ 無法從 API 響應中獲取區塊號: {data}")
                         return block_number
                     elif response.status == 429:
                         logger.error(f"❌ TronGrid API 請求頻率限制: HTTP {response.status}")
