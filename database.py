@@ -23,7 +23,13 @@ class Database:
         if os.path.exists(self.db_file):
             try:
                 with open(self.db_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                    data = json.load(f)
+                    
+                # 轉換 trial_users 從 list 回 set（如果需要）
+                if 'trial_users' in data and isinstance(data['trial_users'], list):
+                    data['trial_users'] = set(data['trial_users'])
+                
+                return data
             except (json.JSONDecodeError, IOError):
                 pass
         

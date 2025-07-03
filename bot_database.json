@@ -49,13 +49,27 @@
       "used": false,
       "used_at": null,
       "used_by_device": null
+    },
+    "685K45Y358PWX9CQ": {
+      "activation_code": "685K45Y358PWX9CQ",
+      "plan_type": "trial",
+      "user_id": 999888777,
+      "order_id": null,
+      "days": 2,
+      "created_at": "2025-07-04T02:39:44.977875",
+      "expires_at": "2025-07-06T02:39:44.977865",
+      "used": false,
+      "used_at": null,
+      "used_by_device": null
     }
   },
-  "trial_users": [],
+  "trial_users": [
+    999888777
+  ],
   "transactions": {},
   "statistics": {
     "total_revenue": 0.0,
     "orders_created": 0,
-    "activations_generated": 4
+    "activations_generated": 5
   }
 }

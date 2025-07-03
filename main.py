@@ -533,22 +533,33 @@ class TGMarketingBot:
         
         if plan_type == 'trial':
             # 處理試用申請
-            if self.db.has_used_trial(user_id):
-                await update.callback_query.answer("您已使用過免費試用！", show_alert=True)
-                return
+            logger.info(f"🎁 用戶 {user_id} 申請免費試用")
             
-            # 直接生成試用激活碼
-            activation_code = self.activation_manager.generate_activation_code(
-                plan_type='trial',
-                days=2,
-                user_id=user_id
-            )
-            
-            # 記錄試用使用
-            self.db.mark_trial_used(user_id)
-            
-            # 發送激活碼
-            text = f"""
+            try:
+                # 檢查是否已使用過試用
+                has_trial = self.db.has_used_trial(user_id)
+                logger.info(f"用戶 {user_id} 試用狀態檢查: {'已使用' if has_trial else '可以使用'}")
+                
+                if has_trial:
+                    await update.callback_query.answer("您已使用過免費試用！", show_alert=True)
+                    return
+                
+                # 直接生成試用激活碼
+                logger.info(f"為用戶 {user_id} 生成試用激活碼...")
+                activation_code = self.activation_manager.generate_activation_code(
+                    plan_type='trial',
+                    days=2,
+                    user_id=user_id
+                )
+                logger.info(f"✅ 生成激活碼成功: {activation_code}")
+                
+                # 記錄試用使用
+                logger.info(f"標記用戶 {user_id} 已使用試用...")
+                self.db.mark_trial_used(user_id)
+                logger.info(f"✅ 試用狀態已更新")
+                
+                # 發送激活碼
+                text = f"""
 🎉 **免費試用激活碼已生成！**
 
 🔑 **激活碼**: `{activation_code}`
@@ -560,15 +571,23 @@ class TGMarketingBot:
 
 💡 試用期結束後，歡迎購買正式版本！
 """
-            
-            keyboard = [
-                [InlineKeyboardButton("📞 聯繫客服", callback_data="contact")],
-                [InlineKeyboardButton("💳 購買正式版", callback_data="buy_menu")],
-                [InlineKeyboardButton("🏠 返回主選單", callback_data="main_menu")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
-            await self.send_message(update, text, reply_markup=reply_markup, parse_mode='Markdown')
+                
+                keyboard = [
+                    [InlineKeyboardButton("📞 聯繫客服", callback_data="contact")],
+                    [InlineKeyboardButton("💳 購買正式版", callback_data="buy_menu")],
+                    [InlineKeyboardButton("🏠 返回主選單", callback_data="main_menu")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                logger.info(f"發送激活碼消息給用戶 {user_id}...")
+                await self.send_message(update, text, reply_markup=reply_markup, parse_mode='Markdown')
+                logger.info(f"✅ 免費試用激活碼已成功發送給用戶 {user_id}")
+                
+            except Exception as e:
+                logger.error(f"❌ 處理免費試用時出錯: {e}")
+                import traceback
+                logger.error(f"錯誤詳情: {traceback.format_exc()}")
+                await update.callback_query.answer("❌ 生成試用激活碼時發生錯誤，請稍後重試", show_alert=True)
             
         else:
             # 處理付費購買
