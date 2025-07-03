@@ -235,6 +235,7 @@ class TGMarketingBot:
         
         # 測試模式
         self.TEST_MODE = os.getenv('TEST_MODE', 'false').lower() == 'true'
+        logger.info(f"測試模式狀態: {self.TEST_MODE} (環境變量: {os.getenv('TEST_MODE', 'false')})")
         
         # 價格配置
         if self.TEST_MODE:
@@ -413,6 +414,7 @@ class TGMarketingBot:
         # 添加測試模式按鈕
         if self.TEST_MODE:
             keyboard.append([InlineKeyboardButton("🧪 1 TRX 測試購買", callback_data="test_mode_buy")])
+            logger.info(f"測試模式按鈕已添加到用戶 {user_id} 的主菜單")
         
         # 管理員額外按鈕
         if user_id in self.config.ADMIN_IDS:
@@ -467,6 +469,18 @@ class TGMarketingBot:
             
         user_id = update.effective_user.id
         user = update.effective_user
+        
+        # 檢查是否有未完成的訂單（防止重複購買）
+        user_orders = self.db.get_user_orders(user_id)
+        pending_orders = [order for order in user_orders if order['status'] == 'pending']
+        
+        if pending_orders:
+            pending_order = pending_orders[0]  # 獲取最新的待付款訂單
+            await update.callback_query.answer(
+                f"❌ 您有未完成的訂單 {pending_order['order_id']}，請先完成付款或等待訂單過期", 
+                show_alert=True
+            )
+            return
         
         # 驗證方案類型
         if plan_type not in self.pricing:
@@ -767,6 +781,18 @@ TG營銷系統團隊 敬上 ❤️
             
         user_id = update.effective_user.id
         user = update.effective_user
+        
+        # 檢查是否有未完成的訂單（防止重複測試）
+        user_orders = self.db.get_user_orders(user_id)
+        pending_orders = [order for order in user_orders if order['status'] == 'pending']
+        
+        if pending_orders:
+            pending_order = pending_orders[0]
+            await update.callback_query.answer(
+                f"❌ 您有未完成的測試訂單 {pending_order['order_id']}，請先完成測試或等待過期", 
+                show_alert=True
+            )
+            return
         
         # 生成唯一的測試訂單金額 (1 TRX + 小數點)
         test_amount = self.generate_unique_amount('weekly')  # 使用週方案作為測試
