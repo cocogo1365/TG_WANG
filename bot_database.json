@@ -61,15 +61,40 @@
       "used": false,
       "used_at": null,
       "used_by_device": null
+    },
+    "4A4LBQH75L4FMW45": {
+      "activation_code": "4A4LBQH75L4FMW45",
+      "plan_type": "trial",
+      "user_id": 7537903238,
+      "order_id": null,
+      "days": 2,
+      "created_at": "2025-07-04T02:49:00.488356",
+      "expires_at": "2025-07-06T02:49:00.488341",
+      "used": false,
+      "used_at": null,
+      "used_by_device": null
+    },
+    "2WQ67T9TAVMS9MWR": {
+      "activation_code": "2WQ67T9TAVMS9MWR",
+      "plan_type": "trial",
+      "user_id": 7537903238,
+      "order_id": null,
+      "days": 2,
+      "created_at": "2025-07-04T02:49:34.248122",
+      "expires_at": "2025-07-06T02:49:34.248110",
+      "used": false,
+      "used_at": null,
+      "used_by_device": null
     }
   },
   "trial_users": [
-    999888777
+    999888777,
+    7537903238
   ],
   "transactions": {},
   "statistics": {
     "total_revenue": 0.0,
     "orders_created": 0,
-    "activations_generated": 5
+    "activations_generated": 7
   }
 }
