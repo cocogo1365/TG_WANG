@@ -1,0 +1,10 @@
+# Railway環境變量示例
+API_KEY=tg-api-secure-key-2024
+DB_PATH=bot_database.json
+
+# TG機器人配置（如果需要同時運行）
+BOT_TOKEN=your_bot_token_here
+ADMIN_IDS=your_user_id_here
+TEST_MODE=true
+USDT_ADDRESS=TGEhjpGrYT2mtST2vHxTd5dTxfh21UzkRP
+USDT_CONTRACT=TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t

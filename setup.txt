@@ -1,0 +1,23 @@
+=== Railway部署步驟 ===
+
+1. 進入TG_WANG目錄：
+   cd C:\Users\XX11\Documents\GitHub\TG_WANG
+
+2. 初始化Railway項目：
+   railway init
+
+3. 選擇 "Empty Project"
+
+4. 項目名稱輸入：tg-activation-api
+
+5. 部署API服務：
+   railway up
+
+6. 設置環境變量：
+   railway variables set API_KEY=tg-api-secure-key-2024
+   railway variables set DB_PATH=bot_database.json
+
+7. 獲取API地址：
+   railway domain
+
+請先執行步驟1-4，然後告訴我結果！
