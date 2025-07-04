@@ -251,6 +251,86 @@ async def check_status(
         logger.error(f"狀態檢查出錯: {e}")
         raise HTTPException(status_code=500, detail="服務器錯誤")
 
+@app.post("/sync/activation_code")
+async def sync_activation_code(
+    data: Dict,
+    x_api_key: Optional[str] = Header(None)
+):
+    """同步激活碼到數據庫"""
+    
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="無效的API密鑰")
+    
+    try:
+        activation_code = data.get("activation_code")
+        code_data = data.get("code_data")
+        
+        if not activation_code or not code_data:
+            raise HTTPException(status_code=400, detail="缺少必要數據")
+        
+        logger.info(f"同步激活碼: {activation_code}")
+        
+        # 獲取數據庫
+        db = get_database()
+        
+        # 添加激活碼
+        db['activation_codes'][activation_code] = code_data
+        
+        # 更新統計
+        if 'activations_generated' in db.get('statistics', {}):
+            db['statistics']['activations_generated'] = db['statistics'].get('activations_generated', 0) + 1
+        
+        # 保存數據庫
+        save_database(db)
+        
+        logger.info(f"✅ 激活碼 {activation_code} 已同步")
+        
+        return {"success": True, "message": "激活碼已同步"}
+        
+    except Exception as e:
+        logger.error(f"同步激活碼失敗: {e}")
+        raise HTTPException(status_code=500, detail="同步失敗")
+
+@app.post("/sync/order")
+async def sync_order(
+    order_data: Dict,
+    x_api_key: Optional[str] = Header(None)
+):
+    """同步訂單到數據庫"""
+    
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="無效的API密鑰")
+    
+    try:
+        order_id = order_data.get("order_id")
+        
+        if not order_id:
+            raise HTTPException(status_code=400, detail="缺少訂單ID")
+        
+        logger.info(f"同步訂單: {order_id}")
+        
+        # 獲取數據庫
+        db = get_database()
+        
+        # 添加訂單
+        db['orders'][order_id] = order_data
+        
+        # 更新統計
+        if order_data.get('status') == 'paid':
+            if 'total_revenue' in db.get('statistics', {}):
+                db['statistics']['total_revenue'] = db['statistics'].get('total_revenue', 0) + order_data.get('amount', 0)
+        
+        # 保存數據庫
+        save_database(db)
+        
+        logger.info(f"✅ 訂單 {order_id} 已同步")
+        
+        return {"success": True, "message": "訂單已同步"}
+        
+    except Exception as e:
+        logger.error(f"同步訂單失敗: {e}")
+        raise HTTPException(status_code=500, detail="同步失敗")
+
 @app.get("/stats")
 async def get_stats(x_api_key: Optional[str] = Header(None)):
     """獲取統計信息"""
