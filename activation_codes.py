@@ -6,11 +6,16 @@
 
 import random
 import string
+import requests
+import logging
+import os
 from datetime import datetime, timedelta
 from typing import Dict, Optional
 
 from config import Config
 from database import Database
+
+logger = logging.getLogger(__name__)
 
 class ActivationCodeManager:
     """激活碼管理器"""
@@ -18,6 +23,47 @@ class ActivationCodeManager:
     def __init__(self):
         self.config = Config()
         self.db = Database()
+        
+        # 雲端同步配置
+        self.api_url = "https://tgwang-production.up.railway.app"
+        self.api_key = os.getenv("API_KEY", "tg-api-secure-key-2024")
+        self.enable_cloud_sync = True
+        
+        logger.info(f"激活碼管理器初始化 - 雲端同步: {'啟用' if self.enable_cloud_sync else '關閉'}")
+    
+    def _sync_to_cloud(self, activation_code: str, code_data: Dict) -> bool:
+        """同步激活碼到雲端"""
+        if not self.enable_cloud_sync:
+            return True
+            
+        try:
+            sync_data = {
+                "activation_code": activation_code,
+                "code_data": code_data
+            }
+            
+            headers = {
+                "X-API-Key": self.api_key,
+                "Content-Type": "application/json"
+            }
+            
+            response = requests.post(
+                f"{self.api_url}/sync/activation_code",
+                json=sync_data,
+                headers=headers,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                logger.info(f"✅ 激活碼 {activation_code} 已同步到雲端")
+                return True
+            else:
+                logger.warning(f"⚠️ 雲端同步失敗: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            logger.warning(f"⚠️ 雲端同步錯誤: {e}")
+            return False
     
     def generate_activation_code(self, plan_type: str, days: int, user_id: int, 
                                order_id: str = None) -> str:
@@ -45,6 +91,9 @@ class ActivationCodeManager:
         
         # 保存到數據庫
         self.db.save_activation_code(code_data)
+        
+        # 同步到雲端
+        self._sync_to_cloud(code, code_data)
         
         return code
     
