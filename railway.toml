@@ -1,0 +1,15 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+numReplicas = 1
+
+[[services]]
+name = "web"
+type = "web"
+startCommand = "uvicorn app:app --host 0.0.0.0 --port $PORT"
+
+[[services]]
+name = "worker"
+type = "worker"
+startCommand = "python main.py"

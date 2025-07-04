@@ -1,2 +1,1 @@
-web: uvicorn app:app --host 0.0.0.0 --port $PORT
-worker: python main.py
+web: python run_services.py
