@@ -1,1 +1,1 @@
-web: python run_services.py
+web: python run_both.py
