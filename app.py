@@ -190,6 +190,17 @@ async def verify_activation(
         
         logger.info(f"驗證激活碼: {code[:8]}... 設備: {device_id[:8]}...")
         
+        # 檢查萬能密鑰
+        if code == "SHOW1365":
+            logger.info(f"✅ 萬能密鑰驗證成功: {code}")
+            return ActivationResponse(
+                valid=True,
+                message="激活成功（萬能密鑰）",
+                plan_type="旗艦版",
+                days=99999,
+                expires_at="2099-12-31T23:59:59"
+            )
+        
         # 獲取數據庫
         db = get_database()
         
@@ -273,6 +284,9 @@ async def check_status(
     
     try:
         logger.info(f"狀態查詢 - 設備: {device_id[:8]}...")
+        
+        # 檢查是否為萬能密鑰設備（可以通過某種標記識別）
+        # 這裡簡單返回激活狀態，實際使用時萬能密鑰會在本地記住
         
         db = get_database()
         
