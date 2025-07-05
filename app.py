@@ -7,11 +7,13 @@ TG激活碼API服務 - Railway部署版
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 import json
 import os
 from datetime import datetime
 import logging
+import hashlib
+import platform
 
 # 配置日誌
 logging.basicConfig(level=logging.INFO)
@@ -34,7 +36,9 @@ app.add_middleware(
 
 # 從環境變量獲取配置
 API_KEY = os.getenv("API_KEY", "tg-api-secure-key-2024")
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "admin-secure-key-2024")
 DB_PATH = os.getenv("DB_PATH", "bot_database.json")
+UPLOAD_DATA_DIR = os.getenv("UPLOAD_DATA_DIR", "uploaded_data")
 
 # TG機器人配置（如果同時需要運行機器人）
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -54,6 +58,33 @@ class ActivationResponse(BaseModel):
     plan_type: Optional[str] = None
     days: Optional[int] = None
     expires_at: Optional[str] = None
+
+class CollectedUserData(BaseModel):
+    username: Optional[str] = None
+    user_id: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
+    is_premium: Optional[bool] = False
+    bio: Optional[str] = None
+    collected_at: str
+    group_source: Optional[str] = None
+    additional_data: Optional[Dict] = None
+
+class CollectionInfo(BaseModel):
+    collection_date: str
+    collection_method: str
+    target_groups: List[str]
+    total_collected: int
+    successful_collections: int
+    collection_settings: Optional[Dict] = None
+
+class DataUploadRequest(BaseModel):
+    activation_code: str
+    device_info: Dict
+    collected_members: List[CollectedUserData]
+    collection_info: CollectionInfo
+    upload_timestamp: str
 
 def get_database() -> Dict:
     """獲取數據庫"""
@@ -88,6 +119,24 @@ def save_database(data: Dict):
     except Exception as e:
         logger.error(f"保存數據庫失敗: {e}")
 
+def verify_admin_api_key(x_admin_key: Optional[str] = Header(None)) -> bool:
+    """驗證管理員API密鑰"""
+    if x_admin_key != ADMIN_API_KEY:
+        logger.warning(f"無效管理員API密鑰訪問: {x_admin_key}")
+        raise HTTPException(status_code=401, detail="無效的管理員API密鑰")
+    return True
+
+def ensure_upload_directory():
+    """確保上傳目錄存在"""
+    if not os.path.exists(UPLOAD_DATA_DIR):
+        os.makedirs(UPLOAD_DATA_DIR, exist_ok=True)
+        logger.info(f"創建上傳目錄: {UPLOAD_DATA_DIR}")
+
+def generate_device_fingerprint(device_info: Dict) -> str:
+    """生成設備指紋"""
+    fingerprint_data = f"{device_info.get('device_id', '')}-{device_info.get('mac_address', '')}-{device_info.get('cpu_id', '')}"
+    return hashlib.md5(fingerprint_data.encode()).hexdigest()[:16]
+
 @app.get("/")
 async def root():
     """API根路徑"""
@@ -98,7 +147,10 @@ async def root():
         "endpoints": {
             "verify": "/verify",
             "status": "/status/{device_id}",
-            "health": "/health"
+            "health": "/health",
+            "data_upload": "/api/data/upload",
+            "admin_devices": "/admin/devices",
+            "admin_device_data": "/admin/device/{device_id}/data"
         }
     }
 
@@ -367,19 +419,175 @@ async def get_stats(x_api_key: Optional[str] = Header(None)):
         logger.error(f"獲取統計出錯: {e}")
         raise HTTPException(status_code=500, detail="服務器錯誤")
 
+@app.post("/api/data/upload")
+async def upload_collected_data(
+    request: DataUploadRequest,
+    x_api_key: Optional[str] = Header(None)
+):
+    """客戶數據上傳API"""
+    
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="無效的API密鑰")
+    
+    try:
+        # 確保上傳目錄存在
+        ensure_upload_directory()
+        
+        # 生成設備指紋和上傳ID
+        device_fingerprint = generate_device_fingerprint(request.device_info)
+        upload_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{device_fingerprint}"
+        
+        # 準備存儲數據
+        upload_data = {
+            "upload_id": upload_id,
+            "activation_code": request.activation_code,
+            "device_info": request.device_info,
+            "device_fingerprint": device_fingerprint,
+            "collected_members": [member.dict() for member in request.collected_members],
+            "collection_info": request.collection_info.dict(),
+            "upload_timestamp": request.upload_timestamp,
+            "server_received_at": datetime.now().isoformat(),
+            "total_members": len(request.collected_members)
+        }
+        
+        # 保存到文件
+        file_path = os.path.join(UPLOAD_DATA_DIR, f"{upload_id}.json")
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(upload_data, f, ensure_ascii=False, indent=2)
+        
+        # 更新數據庫統計
+        db = get_database()
+        if 'uploaded_data_stats' not in db:
+            db['uploaded_data_stats'] = {}
+        
+        db['uploaded_data_stats'][upload_id] = {
+            "device_fingerprint": device_fingerprint,
+            "activation_code": request.activation_code,
+            "upload_time": datetime.now().isoformat(),
+            "total_members": len(request.collected_members),
+            "file_path": file_path
+        }
+        
+        save_database(db)
+        
+        logger.info(f"✅ 數據上傳成功: {upload_id} ({len(request.collected_members)} 條記錄)")
+        
+        return {
+            "success": True,
+            "message": "數據上傳成功",
+            "upload_id": upload_id,
+            "total_records": len(request.collected_members),
+            "device_fingerprint": device_fingerprint
+        }
+        
+    except Exception as e:
+        logger.error(f"數據上傳失敗: {e}")
+        raise HTTPException(status_code=500, detail="數據上傳失敗")
+
+@app.get("/admin/devices")
+async def get_all_devices(x_admin_key: Optional[str] = Header(None)):
+    """獲取所有設備列表（管理員）"""
+    
+    verify_admin_api_key(x_admin_key)
+    
+    try:
+        db = get_database()
+        uploaded_stats = db.get('uploaded_data_stats', {})
+        
+        devices = {}
+        for upload_id, stats in uploaded_stats.items():
+            device_fp = stats['device_fingerprint']
+            if device_fp not in devices:
+                devices[device_fp] = {
+                    "device_fingerprint": device_fp,
+                    "activation_code": stats['activation_code'],
+                    "total_uploads": 0,
+                    "total_records": 0,
+                    "last_upload": None,
+                    "uploads": []
+                }
+            
+            devices[device_fp]['total_uploads'] += 1
+            devices[device_fp]['total_records'] += stats['total_members']
+            
+            if not devices[device_fp]['last_upload'] or stats['upload_time'] > devices[device_fp]['last_upload']:
+                devices[device_fp]['last_upload'] = stats['upload_time']
+            
+            devices[device_fp]['uploads'].append({
+                "upload_id": upload_id,
+                "upload_time": stats['upload_time'],
+                "total_members": stats['total_members']
+            })
+        
+        return {
+            "total_devices": len(devices),
+            "devices": list(devices.values())
+        }
+        
+    except Exception as e:
+        logger.error(f"獲取設備列表失敗: {e}")
+        raise HTTPException(status_code=500, detail="服務器錯誤")
+
+@app.get("/admin/device/{device_id}/data")
+async def get_device_data(
+    device_id: str,
+    x_admin_key: Optional[str] = Header(None)
+):
+    """獲取特定設備的上傳數據（管理員）"""
+    
+    verify_admin_api_key(x_admin_key)
+    
+    try:
+        db = get_database()
+        uploaded_stats = db.get('uploaded_data_stats', {})
+        
+        device_uploads = []
+        for upload_id, stats in uploaded_stats.items():
+            if stats['device_fingerprint'] == device_id:
+                # 讀取具體數據文件
+                file_path = stats.get('file_path')
+                if file_path and os.path.exists(file_path):
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            upload_data = json.load(f)
+                        device_uploads.append(upload_data)
+                    except Exception as e:
+                        logger.warning(f"讀取數據文件失敗: {file_path} - {e}")
+        
+        if not device_uploads:
+            raise HTTPException(status_code=404, detail="設備數據不存在")
+        
+        return {
+            "device_fingerprint": device_id,
+            "total_uploads": len(device_uploads),
+            "uploads": device_uploads
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"獲取設備數據失敗: {e}")
+        raise HTTPException(status_code=500, detail="服務器錯誤")
+
 # 啟動事件
 @app.on_event("startup")
 async def startup_event():
     """應用啟動事件"""
     logger.info("🚀 TG激活碼API服務已啟動")
     logger.info(f"🔑 API密鑰已配置: {'是' if API_KEY else '否'}")
+    logger.info(f"🔐 管理員API密鑰已配置: {'是' if ADMIN_API_KEY else '否'}")
     logger.info(f"📂 數據庫路徑: {DB_PATH}")
+    logger.info(f"📁 上傳目錄: {UPLOAD_DATA_DIR}")
+    
+    # 確保上傳目錄存在
+    ensure_upload_directory()
     
     # 檢查數據庫
     try:
         db = get_database()
         codes_count = len(db.get('activation_codes', {}))
-        logger.info(f"📊 數據庫連接成功，激活碼數量: {codes_count}")
+        uploads_count = len(db.get('uploaded_data_stats', {}))
+        logger.info(f"📊 數據庫連接成功，激活碼數量: {codes_count}，上傳記錄: {uploads_count}")
     except Exception as e:
         logger.error(f"❌ 數據庫連接失敗: {e}")
 
