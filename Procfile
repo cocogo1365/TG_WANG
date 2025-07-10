@@ -1,1 +1,1 @@
-web: python run_both.py
+web: python integrated_enterprise_app.py
