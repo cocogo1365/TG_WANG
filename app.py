@@ -251,6 +251,39 @@ async def verify_activation(
         logger.error(f"驗證過程出錯: {e}")
         raise HTTPException(status_code=500, detail="服務器錯誤")
 
+@app.post("/sync/activation_code")
+async def sync_activation_code(
+    request: dict,
+    x_api_key: Optional[str] = Header(None)
+):
+    """同步激活碼（供機器人使用）"""
+    
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="無效的API密鑰")
+    
+    try:
+        activation_code = request.get("activation_code")
+        code_data = request.get("code_data")
+        
+        if not activation_code or not code_data:
+            raise HTTPException(status_code=400, detail="缺少必要數據")
+        
+        logger.info(f"同步激活碼: {activation_code[:8]}...")
+        
+        # 使用數據庫適配器保存激活碼
+        success = db_adapter.save_activation_code(activation_code, code_data)
+        
+        if success:
+            logger.info(f"✅ 激活碼同步成功: {activation_code}")
+            return {"success": True, "message": "激活碼同步成功"}
+        else:
+            logger.error(f"❌ 激活碼同步失敗: {activation_code}")
+            return {"success": False, "message": "激活碼同步失敗"}
+            
+    except Exception as e:
+        logger.error(f"同步過程出錯: {e}")
+        raise HTTPException(status_code=500, detail="服務器錯誤")
+
 @app.get("/status/{device_id}")
 async def check_status(
     device_id: str,
