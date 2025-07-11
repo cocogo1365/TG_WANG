@@ -1,0 +1,23 @@
+{
+  "AGENT001": {
+    "bot_token": "YOUR_AGENT_BOT_TOKEN_1",
+    "name": "張代理專屬機器人",
+    "admin_ids": ["AGENT001", "123456789"],
+    "usdt_address": "TGEhjpGrYT2mtST2vHxTd5dTxfh21UzkRP",
+    "api_key": "26af1138-bb1c-446d-81df-b25e957e44db"
+  },
+  "AGENT002": {
+    "bot_token": "YOUR_AGENT_BOT_TOKEN_2", 
+    "name": "李代理專屬機器人",
+    "admin_ids": ["AGENT002", "987654321"],
+    "usdt_address": "TGEhjpGrYT2mtST2vHxTd5dTxfh21UzkRP",
+    "api_key": "26af1138-bb1c-446d-81df-b25e957e44db"
+  },
+  "AGENT003": {
+    "bot_token": "YOUR_AGENT_BOT_TOKEN_3",
+    "name": "王代理專屬機器人", 
+    "admin_ids": ["AGENT003", "555666777"],
+    "usdt_address": "TGEhjpGrYT2mtST2vHxTd5dTxfh21UzkRP",
+    "api_key": "26af1138-bb1c-446d-81df-b25e957e44db"
+  }
+}
