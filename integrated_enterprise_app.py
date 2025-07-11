@@ -510,13 +510,11 @@ DASHBOARD_TEMPLATE = '''
                             <tr>
                                 <th>激活碼</th>
                                 <th>方案類型</th>
-                                <th>用戶ID</th>
-                                <th>訂單編號</th>
-                                <th>天數</th>
                                 <th>狀態</th>
+                                <th>有效期</th>
+                                <th>使用狀態</th>
                                 <th>創建時間</th>
-                                <th>到期時間</th>
-                                <th>使用設備</th>
+                                <th>操作</th>
                             </tr>
                         </thead>
                         <tbody id="activations-tbody">
@@ -668,12 +666,126 @@ DASHBOARD_TEMPLATE = '''
         // 載入激活碼數據
         async function loadActivationsData() {
             try {
-                const response = await fetch('/api/activations');
+                const response = await fetch('/api/activation_codes');
                 const data = await response.json();
-                updateActivationsTable(data.activations || []);
+                updateActivationsTable(data.codes || []);
             } catch (error) {
                 console.error('載入激活碼數據失敗:', error);
             }
+        }
+        
+        function updateActivationsTable(codes) {
+            const tbody = document.getElementById('activations-tbody');
+            tbody.innerHTML = '';
+            
+            codes.forEach(code => {
+                const row = document.createElement('tr');
+                
+                // 狀態顏色
+                const statusClass = code.disabled ? 'text-danger' : (code.used ? 'text-warning' : 'text-success');
+                const statusText = code.disabled ? '已停權' : (code.used ? '已使用' : '未使用');
+                
+                // 方案類型顯示
+                const planNames = {
+                    'trial': '試用版',
+                    'weekly': '週方案',
+                    'monthly': '月方案',
+                    'premium': '旗艦版'
+                };
+                const planName = planNames[code.plan_type] || code.plan_type;
+                
+                row.innerHTML = `
+                    <td><code>${code.code}</code></td>
+                    <td><span class="badge bg-primary">${planName}</span></td>
+                    <td><span class="badge ${code.disabled ? 'bg-danger' : 'bg-success'}">${code.disabled ? '已停權' : '正常'}</span></td>
+                    <td>${code.days}天</td>
+                    <td><span class="${statusClass}">${statusText}</span></td>
+                    <td>${code.created_at ? new Date(code.created_at).toLocaleString() : '-'}</td>
+                    <td>
+                        ${code.disabled ? 
+                            `<button class="btn btn-success btn-sm" onclick="enableActivationCode('${code.code}')">恢復</button>` :
+                            `<button class="btn btn-danger btn-sm" onclick="disableActivationCode('${code.code}')">停權</button>`
+                        }
+                        <button class="btn btn-info btn-sm" onclick="viewCodeDetails('${code.code}')">詳情</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        
+        async function disableActivationCode(code) {
+            const reason = prompt('請輸入停權原因:', '違規使用');
+            if (!reason) return;
+            
+            try {
+                const response = await fetch('/api/disable_activation_code', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        activation_code: code,
+                        reason: reason
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    alert('激活碼已停權');
+                    loadActivationsData();
+                } else {
+                    alert('停權失敗: ' + data.error);
+                }
+            } catch (error) {
+                console.error('停權失敗:', error);
+                alert('停權失敗');
+            }
+        }
+        
+        async function enableActivationCode(code) {
+            if (!confirm('確定要恢復此激活碼嗎？')) return;
+            
+            try {
+                const response = await fetch('/api/enable_activation_code', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        activation_code: code
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    alert('激活碼已恢復');
+                    loadActivationsData();
+                } else {
+                    alert('恢復失敗: ' + data.error);
+                }
+            } catch (error) {
+                console.error('恢復失敗:', error);
+                alert('恢復失敗');
+            }
+        }
+        
+        function viewCodeDetails(code) {
+            // 這裡可以顯示激活碼的詳細信息
+            alert('激活碼詳情功能開發中: ' + code);
+        }
+        
+        function refreshActivations() {
+            loadActivationsData();
+        }
+        
+        function searchActivations() {
+            const searchTerm = document.getElementById('activation-search').value.toLowerCase();
+            const rows = document.querySelectorAll('#activations-tbody tr');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
         }
         
         // 載入採集數據
@@ -942,6 +1054,177 @@ def index():
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
 
+@app.route('/api/activation_codes')
+def api_activation_codes():
+    """獲取激活碼列表API"""
+    if 'logged_in' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        bot_db = get_bot_database()
+        activation_codes = bot_db.get('activation_codes', {})
+        
+        # 格式化激活碼列表
+        codes_list = []
+        for code, info in activation_codes.items():
+            codes_list.append({
+                'code': code,
+                'plan_type': info.get('plan_type', 'unknown'),
+                'days': info.get('days', 0),
+                'used': info.get('used', False),
+                'disabled': info.get('disabled', False),
+                'created_at': info.get('created_at', ''),
+                'used_at': info.get('used_at', ''),
+                'used_by_device': info.get('used_by_device', ''),
+                'disabled_at': info.get('disabled_at', ''),
+                'disabled_by': info.get('disabled_by', ''),
+                'expires_at': info.get('expires_at', '')
+            })
+        
+        # 按創建時間排序
+        codes_list.sort(key=lambda x: x['created_at'], reverse=True)
+        
+        return jsonify({
+            'success': True,
+            'codes': codes_list,
+            'total': len(codes_list)
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/disable_activation_code', methods=['POST'])
+def api_disable_activation_code():
+    """停權激活碼API"""
+    if 'logged_in' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        data = request.get_json()
+        activation_code = data.get('activation_code')
+        reason = data.get('reason', '管理員停權')
+        
+        if not activation_code:
+            return jsonify({'error': '激活碼不能為空'}), 400
+        
+        # 使用數據庫適配器獲取激活碼
+        code_info = db_adapter.get_activation_code(activation_code)
+        
+        if not code_info:
+            return jsonify({'error': '激活碼不存在'}), 404
+        
+        # 標記為停權
+        code_info['disabled'] = True
+        code_info['disabled_at'] = datetime.now().isoformat()
+        code_info['disabled_by'] = session.get('username', 'admin')
+        code_info['disabled_reason'] = reason
+        
+        # 保存到數據庫
+        success = db_adapter.save_activation_code(activation_code, code_info)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': f'激活碼 {activation_code} 已被停權'
+            })
+        else:
+            return jsonify({'error': '停權失敗'}), 500
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/enable_activation_code', methods=['POST'])
+def api_enable_activation_code():
+    """恢復激活碼API"""
+    if 'logged_in' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        data = request.get_json()
+        activation_code = data.get('activation_code')
+        
+        if not activation_code:
+            return jsonify({'error': '激活碼不能為空'}), 400
+        
+        # 使用數據庫適配器獲取激活碼
+        code_info = db_adapter.get_activation_code(activation_code)
+        
+        if not code_info:
+            return jsonify({'error': '激活碼不存在'}), 404
+        
+        # 恢復激活碼
+        code_info['disabled'] = False
+        code_info['enabled_at'] = datetime.now().isoformat()
+        code_info['enabled_by'] = session.get('username', 'admin')
+        
+        # 保存到數據庫
+        success = db_adapter.save_activation_code(activation_code, code_info)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': f'激活碼 {activation_code} 已恢復'
+            })
+        else:
+            return jsonify({'error': '恢復失敗'}), 500
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/upload_software_data', methods=['POST'])
+def api_upload_software_data():
+    """接收軟件上傳的數據API"""
+    try:
+        # 檢查API密鑰
+        api_key = request.headers.get('X-API-Key')
+        if api_key != "tg-api-secure-key-2024":
+            return jsonify({'error': '無效的API密鑰'}), 401
+        
+        data = request.get_json()
+        activation_code = data.get('activation_code')
+        device_id = data.get('device_id')
+        software_data = data.get('data', {})
+        
+        if not activation_code or not device_id:
+            return jsonify({'error': '缺少必要參數'}), 400
+        
+        # 驗證激活碼
+        code_info = db_adapter.get_activation_code(activation_code)
+        if not code_info:
+            return jsonify({'error': '激活碼不存在'}), 404
+        
+        # 檢查是否被停權
+        if code_info.get('disabled', False):
+            return jsonify({'error': '激活碼已被停權，軟件已停止'}), 403
+        
+        # 保存軟件數據
+        software_record = {
+            'activation_code': activation_code,
+            'device_id': device_id,
+            'upload_time': datetime.now().isoformat(),
+            'accounts': software_data.get('accounts', []),
+            'collections': software_data.get('collections', []),
+            'invitations': software_data.get('invitations', []),
+            'statistics': software_data.get('statistics', {}),
+            'status': software_data.get('status', 'running')
+        }
+        
+        # 保存到上傳數據目錄
+        upload_file = os.path.join(UPLOAD_DATA_DIR, f"software_{device_id}_{int(datetime.now().timestamp())}.json")
+        os.makedirs(UPLOAD_DATA_DIR, exist_ok=True)
+        
+        with open(upload_file, 'w', encoding='utf-8') as f:
+            json.dump(software_record, f, ensure_ascii=False, indent=2)
+        
+        return jsonify({
+            'success': True,
+            'message': '數據上傳成功',
+            'activation_status': 'active' if not code_info.get('disabled', False) else 'disabled'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/dashboard')
 def dashboard():
     """儀表板"""
@@ -1004,6 +1287,13 @@ def api_verify_activation():
             return jsonify({
                 "valid": False,
                 "message": "激活碼不存在"
+            })
+        
+        # 檢查是否被停權
+        if code_info.get('disabled', False):
+            return jsonify({
+                "valid": False,
+                "message": f"激活碼已被停權，停權時間: {code_info.get('disabled_at', 'unknown')}，原因: {code_info.get('disabled_reason', '管理員停權')}"
             })
         
         if code_info.get('used', False):
