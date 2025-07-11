@@ -53,7 +53,11 @@ class DatabaseAdapter:
                     used_at TIMESTAMP,
                     used_by_device VARCHAR(100),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    created_by VARCHAR(50)
+                    created_by VARCHAR(50),
+                    disabled BOOLEAN DEFAULT FALSE,
+                    disabled_at TIMESTAMP,
+                    disabled_by VARCHAR(50),
+                    disabled_reason TEXT
                 )
             """)
             
@@ -107,7 +111,11 @@ class DatabaseAdapter:
                     'used_at': row['used_at'].isoformat() if row['used_at'] else None,
                     'used_by_device': row['used_by_device'],
                     'created_at': row['created_at'].isoformat() if row['created_at'] else None,
-                    'created_by': row['created_by']
+                    'created_by': row['created_by'],
+                    'disabled': row.get('disabled', False),
+                    'disabled_at': row['disabled_at'].isoformat() if row.get('disabled_at') else None,
+                    'disabled_by': row.get('disabled_by'),
+                    'disabled_reason': row.get('disabled_reason')
                 }
             
             cur.close()
@@ -243,3 +251,64 @@ class DatabaseAdapter:
         """獲取單個激活碼"""
         data = self.get_activation_codes()
         return data.get("activation_codes", {}).get(code)
+    
+    def update_activation_code_status(self, code: str, disabled: bool, disabled_by: str = None, reason: str = None) -> bool:
+        """更新激活碼狀態（停權/啟用）"""
+        if self.use_postgres:
+            return self._update_activation_code_status_postgres(code, disabled, disabled_by, reason)
+        else:
+            return self._update_activation_code_status_json(code, disabled, disabled_by, reason)
+    
+    def _update_activation_code_status_postgres(self, code: str, disabled: bool, disabled_by: str = None, reason: str = None) -> bool:
+        """在PostgreSQL中更新激活碼狀態"""
+        try:
+            conn = psycopg2.connect(self.db_url)
+            cur = conn.cursor()
+            
+            if disabled:
+                cur.execute("""
+                    UPDATE activation_codes 
+                    SET disabled = TRUE, disabled_at = CURRENT_TIMESTAMP, disabled_by = %s, disabled_reason = %s
+                    WHERE code = %s
+                """, (disabled_by, reason, code))
+            else:
+                cur.execute("""
+                    UPDATE activation_codes 
+                    SET disabled = FALSE, disabled_at = NULL, disabled_by = NULL, disabled_reason = NULL
+                    WHERE code = %s
+                """, (code,))
+            
+            conn.commit()
+            cur.close()
+            conn.close()
+            
+            return True
+        except Exception as e:
+            self.logger.error(f"PostgreSQL狀態更新失敗: {e}")
+            return False
+    
+    def _update_activation_code_status_json(self, code: str, disabled: bool, disabled_by: str = None, reason: str = None) -> bool:
+        """在JSON文件中更新激活碼狀態"""
+        try:
+            db_data = self._get_activation_codes_json()
+            
+            if code in db_data["activation_codes"]:
+                if disabled:
+                    db_data["activation_codes"][code]["disabled"] = True
+                    db_data["activation_codes"][code]["disabled_at"] = datetime.now().isoformat()
+                    db_data["activation_codes"][code]["disabled_by"] = disabled_by
+                    db_data["activation_codes"][code]["disabled_reason"] = reason
+                else:
+                    db_data["activation_codes"][code]["disabled"] = False
+                    db_data["activation_codes"][code]["disabled_at"] = None
+                    db_data["activation_codes"][code]["disabled_by"] = None
+                    db_data["activation_codes"][code]["disabled_reason"] = None
+                
+                with open(self.json_path, 'w', encoding='utf-8') as f:
+                    json.dump(db_data, f, ensure_ascii=False, indent=2)
+                
+                return True
+            return False
+        except Exception as e:
+            self.logger.error(f"JSON狀態更新失敗: {e}")
+            return False

@@ -1113,14 +1113,13 @@ def api_disable_activation_code():
         if not code_info:
             return jsonify({'error': '激活碼不存在'}), 404
         
-        # 標記為停權
-        code_info['disabled'] = True
-        code_info['disabled_at'] = datetime.now().isoformat()
-        code_info['disabled_by'] = session.get('username', 'admin')
-        code_info['disabled_reason'] = reason
-        
-        # 保存到數據庫
-        success = db_adapter.save_activation_code(activation_code, code_info)
+        # 使用專門的狀態更新方法
+        success = db_adapter.update_activation_code_status(
+            activation_code, 
+            disabled=True, 
+            disabled_by=session.get('username', 'admin'), 
+            reason=reason
+        )
         
         if success:
             return jsonify({
@@ -1152,13 +1151,13 @@ def api_enable_activation_code():
         if not code_info:
             return jsonify({'error': '激活碼不存在'}), 404
         
-        # 恢復激活碼
-        code_info['disabled'] = False
-        code_info['enabled_at'] = datetime.now().isoformat()
-        code_info['enabled_by'] = session.get('username', 'admin')
-        
-        # 保存到數據庫
-        success = db_adapter.save_activation_code(activation_code, code_info)
+        # 使用專門的狀態更新方法
+        success = db_adapter.update_activation_code_status(
+            activation_code, 
+            disabled=False, 
+            disabled_by=session.get('username', 'admin'), 
+            reason=None
+        )
         
         if success:
             return jsonify({
