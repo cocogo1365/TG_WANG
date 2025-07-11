@@ -43,3 +43,6 @@ python-multipart==0.0.6
 flask==2.3.3
 werkzeug==2.3.7
 pandas==2.0.3
+
+# Database
+psycopg2-binary==2.9.9

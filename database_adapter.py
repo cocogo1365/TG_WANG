@@ -9,8 +9,12 @@ import os
 import logging
 from typing import Dict, Optional, List
 from datetime import datetime
-import psycopg2
-from psycopg2.extras import RealDictCursor
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    HAS_PSYCOPG2 = True
+except ImportError:
+    HAS_PSYCOPG2 = False
 
 class DatabaseAdapter:
     """數據庫適配器 - 支持JSON和PostgreSQL"""
@@ -20,14 +24,17 @@ class DatabaseAdapter:
         self.db_url = os.getenv("DATABASE_URL")
         self.json_path = os.getenv("DB_PATH", "bot_database.json")
         
-        # 如果有DATABASE_URL就使用PostgreSQL，否則使用JSON
-        self.use_postgres = bool(self.db_url)
+        # 如果有DATABASE_URL且有psycopg2模塊就使用PostgreSQL，否則使用JSON
+        self.use_postgres = bool(self.db_url) and HAS_PSYCOPG2
         
         if self.use_postgres:
             self.logger.info("使用PostgreSQL數據庫")
             self._init_postgres()
         else:
-            self.logger.info("使用JSON文件數據庫")
+            if not HAS_PSYCOPG2:
+                self.logger.warning("psycopg2模塊未安裝，使用JSON文件數據庫")
+            else:
+                self.logger.info("使用JSON文件數據庫")
     
     def _init_postgres(self):
         """初始化PostgreSQL表結構"""
