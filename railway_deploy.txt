@@ -1,0 +1,22 @@
+Railway 部署說明:
+
+1. 修復已完成:
+   - 修復了 switchTab() 函數的 JavaScript 事件處理
+   - 添加了缺失的 loadStatisticsData() 和 loadUsersData() 函數
+   - 添加了 users-tab 的 HTML 模板
+   - 添加了 /api/statistics 和 /api/users API 端點
+
+2. 需要重新部署:
+   - 文件已在本地修改完成
+   - 需要推送到 GitHub 並觸發 Railway 重新部署
+
+3. 問題診斷:
+   - 導航按鈕無反應的原因是 JavaScript 函數缺失
+   - 已全部修復，等待部署生效
+
+修復的關鍵點:
+- 修復了 event.target 未定義的問題
+- 添加了缺失的 tab 內容和 API 端點
+- 所有導航功能現在應該正常工作
+
+部署完成後，所有導航按鈕應該可以正常工作。
