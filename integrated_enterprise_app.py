@@ -1226,6 +1226,43 @@ def api_upload_software_data():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/sync_activation_code', methods=['POST'])
+def api_sync_activation_code():
+    """同步激活碼到雲端數據庫"""
+    try:
+        # 檢查API密鑰
+        api_key = request.headers.get('X-API-Key')
+        if api_key != "tg-api-secure-key-2024":
+            return jsonify({'error': '無效的API密鑰'}), 401
+        
+        data = request.get_json()
+        activation_code = data.get('activation_code')
+        code_data = data.get('code_data', {})
+        
+        if not activation_code or not code_data:
+            return jsonify({'error': '缺少必要參數'}), 400
+        
+        # 檢查激活碼是否已存在
+        existing_code = db_adapter.get_activation_code(activation_code)
+        if existing_code:
+            return jsonify({'error': '激活碼已存在'}), 409
+        
+        # 保存激活碼到雲端數據庫
+        success = db_adapter.save_activation_code(activation_code, code_data)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': '激活碼同步成功',
+                'activation_code': activation_code
+            })
+        else:
+            return jsonify({'error': '同步失敗'}), 500
+    
+    except Exception as e:
+        logger.error(f"同步激活碼失敗: {e}")
+        return jsonify({'error': '同步失敗'}), 500
+
 @app.route('/dashboard')
 def dashboard():
     """儀表板"""
