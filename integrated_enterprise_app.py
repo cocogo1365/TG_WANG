@@ -677,7 +677,7 @@ DASHBOARD_TEMPLATE = '''
                 link.classList.remove('active');
             });
             // 找到被點擊的連結並設為活動狀態
-            const clickedLink = document.querySelector(`[onclick="switchTab('${tabName}')"]`);
+            const clickedLink = document.querySelector('[onclick*="switchTab(\'' + tabName + '\')"]');
             if (clickedLink) {
                 clickedLink.classList.add('active');
             }
@@ -812,10 +812,10 @@ DASHBOARD_TEMPLATE = '''
                     <td>${code.created_at ? new Date(code.created_at).toLocaleString() : '-'}</td>
                     <td>
                         ${code.disabled ? 
-                            `<button class="btn btn-success btn-sm" onclick="enableActivationCode('${code.code}')">恢復</button>` :
-                            `<button class="btn btn-danger btn-sm" onclick="disableActivationCode('${code.code}')">停權</button>`
+                            '<button class="btn btn-success btn-sm" onclick="enableActivationCode(\'' + code.code + '\')">恢復</button>' :
+                            '<button class="btn btn-danger btn-sm" onclick="disableActivationCode(\'' + code.code + '\')">停權</button>'
                         }
-                        <button class="btn btn-info btn-sm" onclick="viewCodeDetails('${code.code}')">詳情</button>
+                        <button class="btn btn-info btn-sm" onclick="viewCodeDetails(\'' + code.code + '\')">詳情</button>
                     </td>
                 `;
                 tbody.appendChild(row);
@@ -886,7 +886,7 @@ DASHBOARD_TEMPLATE = '''
         
         async function viewCodeDetails(code) {
             try {
-                const response = await fetch(`/api/activation_code_details/${code}`);
+                const response = await fetch('/api/activation_code_details/' + code);
                 const data = await response.json();
                 
                 if (data.success) {
@@ -1005,7 +1005,7 @@ DASHBOARD_TEMPLATE = '''
             const link = document.createElement('a');
             const url = URL.createObjectURL(blob);
             link.setAttribute('href', url);
-            link.setAttribute('download', `activation_codes_${new Date().toISOString().split('T')[0]}.csv`);
+            link.setAttribute('download', 'activation_codes_' + new Date().toISOString().split('T')[0] + '.csv');
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
