@@ -15,103 +15,6 @@
     }
   },
   "activation_codes": {
-    "TEST1234ABCD5678": {
-      "activation_code": "TEST1234ABCD5678",
-      "plan_type": "trial",
-      "user_id": 123456789,
-      "order_id": "TG20241201TEST",
-      "days": 2,
-      "created_at": "2024-12-01T10:00:00",
-      "expires_at": "2024-12-03T23:59:59",
-      "used": false,
-      "used_at": null,
-      "used_by_device": null
-    },
-    "WEEK7DAYSCODE123": {
-      "activation_code": "WEEK7DAYSCODE123",
-      "plan_type": "weekly",
-      "user_id": 123456789,
-      "order_id": "TG20241201WEEK",
-      "days": 7,
-      "created_at": "2024-12-01T10:00:00",
-      "expires_at": "2024-12-08T23:59:59",
-      "used": false,
-      "used_at": null,
-      "used_by_device": null
-    },
-    "MONTH30DAYSCODE1": {
-      "activation_code": "MONTH30DAYSCODE1",
-      "plan_type": "monthly",
-      "user_id": 123456789,
-      "order_id": "TG20241201MONTH",
-      "days": 30,
-      "created_at": "2024-12-01T10:00:00",
-      "expires_at": "2024-12-31T23:59:59",
-      "used": false,
-      "used_at": null,
-      "used_by_device": null
-    },
-    "FREETRIAL2025ABC": {
-      "activation_code": "FREETRIAL2025ABC",
-      "plan_type": "trial",
-      "user_id": 999999999,
-      "order_id": "FREE_TRIAL_001",
-      "days": 2,
-      "created_at": "2024-12-03T10:00:00",
-      "expires_at": "2024-12-05T23:59:59",
-      "used": false,
-      "used_at": null,
-      "used_by_device": null
-    },
-    "685K45Y358PWX9CQ": {
-      "activation_code": "685K45Y358PWX9CQ",
-      "plan_type": "trial",
-      "user_id": 999888777,
-      "order_id": null,
-      "days": 2,
-      "created_at": "2025-07-04T02:39:44.977875",
-      "expires_at": "2025-07-06T02:39:44.977865",
-      "used": false,
-      "used_at": null,
-      "used_by_device": null
-    },
-    "4A4LBQH75L4FMW45": {
-      "activation_code": "4A4LBQH75L4FMW45",
-      "plan_type": "trial",
-      "user_id": 7537903238,
-      "order_id": null,
-      "days": 2,
-      "created_at": "2025-07-04T02:49:00.488356",
-      "expires_at": "2025-07-06T02:49:00.488341",
-      "used": false,
-      "used_at": null,
-      "used_by_device": null
-    },
-    "2WQ67T9TAVMS9MWR": {
-      "activation_code": "2WQ67T9TAVMS9MWR",
-      "plan_type": "trial",
-      "user_id": 7537903238,
-      "order_id": null,
-      "days": 2,
-      "created_at": "2025-07-04T02:49:34.248122",
-      "expires_at": "2025-07-06T02:49:34.248110",
-      "used": false,
-      "used_at": null,
-      "used_by_device": null
-    },
-    "DNDN6ZDE4QSAMX5D": {
-      "activation_code": "DNDN6ZDE4QSAMX5D",
-      "plan_type": "weekly",
-      "user_id": 7537903238,
-      "order_id": "TG615721W5G6",
-      "days": 7,
-      "created_at": "2025-07-04T07:57:24",
-      "expires_at": "2025-07-11T16:00:28.485334",
-      "used": true,
-      "used_at": "2025-07-04T16:12:51.988762",
-      "used_by_device": "c4ad9b7e4c712ba0",
-      "tx_hash": "386b2300a7518c85784acae95f2a1b8af41212e51bfa35f7d18b6720b8a0ddc3"
-    },
     "N7BFM2X8GVHPQW4K": {
       "activation_code": "N7BFM2X8GVHPQW4K",
       "plan_type": "weekly",
@@ -136,16 +39,101 @@
       "used": false,
       "used_at": null,
       "used_by_device": null
+    },
+    "FREETRIAL2025ABC": {
+      "activation_code": "FREETRIAL2025ABC",
+      "plan_type": "trial",
+      "user_id": 999999999,
+      "order_id": "FREE_TRIAL_001",
+      "days": 2,
+      "created_at": "2024-12-03T10:00:00",
+      "expires_at": "2025-12-05T23:59:59",
+      "used": true,
+      "used_at": "2025-07-11T21:25:32.550864",
+      "used_by_device": "DEMO-DEVICE-123"
+    },
+    "WEEK7DAYSCODE123": {
+      "activation_code": "WEEK7DAYSCODE123",
+      "plan_type": "weekly",
+      "user_id": 123456789,
+      "order_id": "TG20241201WEEK",
+      "days": 7,
+      "created_at": "2024-12-01T10:00:00",
+      "expires_at": "2025-12-08T23:59:59",
+      "used": false,
+      "used_at": null,
+      "used_by_device": null
+    },
+    "MONTH30DAYSCODE1": {
+      "activation_code": "MONTH30DAYSCODE1",
+      "plan_type": "monthly",
+      "user_id": 123456789,
+      "order_id": "TG20241201MONTH",
+      "days": 30,
+      "created_at": "2024-12-01T10:00:00",
+      "expires_at": "2025-12-31T23:59:59",
+      "used": false,
+      "used_at": null,
+      "used_by_device": null
+    },
+    "TEST123456789": {
+      "activation_code": "TEST123456789",
+      "plan_type": "trial",
+      "user_id": 12345,
+      "order_id": null,
+      "days": 2,
+      "created_at": "2025-07-11T12:49:34",
+      "expires_at": "2025-07-13T12:49:34",
+      "used": false,
+      "used_at": null,
+      "used_by_device": null
+    },
+    "8HR7KEGCLPJRCW22": {
+      "activation_code": "8HR7KEGCLPJRCW22",
+      "plan_type": "test",
+      "user_id": 12345,
+      "order_id": null,
+      "days": 7,
+      "created_at": "2025-07-11T20:59:40.534000",
+      "expires_at": "2025-07-18T20:59:40.533990",
+      "used": false,
+      "used_at": null,
+      "used_by_device": null
+    },
+    "EY9MD3CGQX44F688": {
+      "activation_code": "EY9MD3CGQX44F688",
+      "plan_type": "trial",
+      "user_id": 8153802786,
+      "order_id": null,
+      "days": 2,
+      "created_at": "2025-07-11T21:03:09.772767",
+      "expires_at": "2025-07-13T21:03:09.772756",
+      "used": false,
+      "used_at": null,
+      "used_by_device": null
+    },
+    "6BMLQHT7NGM3TY9J": {
+      "activation_code": "6BMLQHT7NGM3TY9J",
+      "plan_type": "trial",
+      "user_id": 8153802786,
+      "order_id": null,
+      "days": 2,
+      "created_at": "2025-07-11T13:13:06.340000",
+      "expires_at": "2025-07-13T13:13:06.340000",
+      "used": false,
+      "used_at": null,
+      "used_by_device": null
     }
   },
   "trial_users": [
     999888777,
-    7537903238
+    7537903238,
+    999999999
   ],
   "transactions": {},
   "statistics": {
     "total_revenue": 1.01,
     "orders_created": 1,
-    "activations_generated": 8
+    "activations_generated": 9
   }
 }

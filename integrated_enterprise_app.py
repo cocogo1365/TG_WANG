@@ -932,6 +932,238 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
+# ========== API端點：供TG旺軟件使用 ==========
+
+@app.route('/api/health', methods=['GET'])
+def api_health():
+    """健康檢查端點"""
+    return jsonify({
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "service": "TG旺企業管理系統"
+    })
+
+@app.route('/api/verify_activation', methods=['POST'])
+def api_verify_activation():
+    """API: 驗證激活碼"""
+    try:
+        # 檢查API密鑰
+        api_key = request.headers.get('X-API-Key')
+        if api_key != "tg-api-secure-key-2024":
+            return jsonify({
+                "valid": False,
+                "message": "無效的API密鑰"
+            }), 401
+        
+        data = request.get_json()
+        activation_code = data.get('activation_code')
+        device_id = data.get('device_id', 'unknown')
+        
+        if not activation_code:
+            return jsonify({
+                "valid": False,
+                "message": "缺少激活碼"
+            }), 400
+        
+        # 讀取機器人數據庫
+        bot_data = get_bot_database()
+        code_info = bot_data.get('activation_codes', {}).get(activation_code)
+        
+        if not code_info:
+            return jsonify({
+                "valid": False,
+                "message": "激活碼不存在"
+            })
+        
+        if code_info.get('used', False):
+            return jsonify({
+                "valid": False,
+                "message": f"激活碼已於 {code_info.get('used_at', 'unknown')} 使用過"
+            })
+        
+        # 檢查是否過期
+        expires_at = datetime.fromisoformat(code_info['expires_at'])
+        if datetime.now() > expires_at:
+            return jsonify({
+                "valid": False,
+                "message": f"激活碼已於 {expires_at.strftime('%Y-%m-%d %H:%M:%S')} 過期"
+            })
+        
+        # 激活碼有效
+        return jsonify({
+            "valid": True,
+            "message": "激活碼有效",
+            "data": {
+                "plan_type": code_info['plan_type'],
+                "days": code_info['days'],
+                "expires_at": code_info['expires_at'],
+                "created_at": code_info['created_at']
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "valid": False,
+            "message": f"驗證錯誤: {str(e)}"
+        }), 500
+
+@app.route('/api/use_activation', methods=['POST'])
+def api_use_activation():
+    """API: 使用激活碼（標記為已使用）"""
+    try:
+        # 檢查API密鑰
+        api_key = request.headers.get('X-API-Key')
+        if api_key != "tg-api-secure-key-2024":
+            return jsonify({
+                "success": False,
+                "message": "無效的API密鑰"
+            }), 401
+        
+        data = request.get_json()
+        activation_code = data.get('activation_code')
+        device_id = data.get('device_id', 'unknown')
+        
+        if not activation_code:
+            return jsonify({
+                "success": False,
+                "message": "缺少激活碼"
+            }), 400
+        
+        # 讀取機器人數據庫
+        bot_data = get_bot_database()
+        code_info = bot_data.get('activation_codes', {}).get(activation_code)
+        
+        if not code_info:
+            return jsonify({
+                "success": False,
+                "message": "激活碼不存在"
+            })
+        
+        if code_info.get('used', False):
+            return jsonify({
+                "success": False,
+                "message": "激活碼已使用過"
+            })
+        
+        # 標記為已使用
+        code_info['used'] = True
+        code_info['used_at'] = datetime.now().isoformat()
+        code_info['used_by_device'] = device_id
+        
+        # 保存到數據庫
+        with open(BOT_DATABASE_PATH, 'w', encoding='utf-8') as f:
+            json.dump(bot_data, f, ensure_ascii=False, indent=2)
+        
+        return jsonify({
+            "success": True,
+            "message": f"激活成功 - {code_info['plan_type']} ({code_info['days']}天)",
+            "data": {
+                "plan_type": code_info['plan_type'],
+                "days": code_info['days'],
+                "expires_at": code_info['expires_at'],
+                "used_at": code_info['used_at'],
+                "device_id": device_id
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"使用錯誤: {str(e)}"
+        }), 500
+
+@app.route('/api/activation_codes', methods=['GET'])
+def api_get_activation_codes():
+    """API: 獲取所有激活碼"""
+    try:
+        # 檢查API密鑰
+        api_key = request.headers.get('X-API-Key')
+        if api_key != "tg-api-secure-key-2024":
+            return jsonify({
+                "success": False,
+                "message": "無效的API密鑰"
+            }), 401
+        
+        bot_data = get_bot_database()
+        activation_codes = bot_data.get('activation_codes', {})
+        
+        # 格式化激活碼列表
+        codes_list = []
+        for code, info in activation_codes.items():
+            codes_list.append({
+                "activation_code": code,
+                "plan_type": info['plan_type'],
+                "days": info['days'],
+                "created_at": info['created_at'],
+                "expires_at": info['expires_at'],
+                "used": info.get('used', False),
+                "used_at": info.get('used_at'),
+                "user_id": info.get('user_id')
+            })
+        
+        return jsonify({
+            "success": True,
+            "total": len(codes_list),
+            "codes": codes_list
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"獲取錯誤: {str(e)}"
+        }), 500
+
+@app.route('/sync/activation_code', methods=['POST'])
+def sync_activation_code():
+    """同步激活碼端點 - 供機器人雲端同步使用"""
+    try:
+        # 檢查API密鑰
+        api_key = request.headers.get('X-API-Key')
+        if api_key != "tg-api-secure-key-2024":
+            return jsonify({
+                "success": False,
+                "message": "無效的API密鑰"
+            }), 401
+        
+        data = request.get_json()
+        activation_code = data.get('activation_code')
+        code_data = data.get('code_data')
+        
+        if not activation_code or not code_data:
+            return jsonify({
+                "success": False,
+                "message": "數據不完整"
+            }), 400
+        
+        # 讀取現有數據庫
+        bot_data = get_bot_database()
+        
+        # 更新激活碼
+        bot_data['activation_codes'][activation_code] = code_data
+        
+        # 更新統計
+        if 'statistics' not in bot_data:
+            bot_data['statistics'] = {}
+        if 'activations_generated' not in bot_data['statistics']:
+            bot_data['statistics']['activations_generated'] = 0
+        
+        bot_data['statistics']['activations_generated'] = len(bot_data['activation_codes'])
+        
+        # 保存到數據庫
+        with open(BOT_DATABASE_PATH, 'w', encoding='utf-8') as f:
+            json.dump(bot_data, f, ensure_ascii=False, indent=2)
+        
+        return jsonify({
+            "success": True,
+            "message": f"激活碼 {activation_code} 同步成功"
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"同步錯誤: {str(e)}"
+        }), 500
+
 if __name__ == '__main__':
     print("🚀 TG旺企業管理系統 - 機器人數據整合版")
     print("=" * 60)

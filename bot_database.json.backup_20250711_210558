@@ -1,0 +1,151 @@
+{
+  "users": {},
+  "orders": {
+    "TG615721W5G6": {
+      "order_id": "TG615721W5G6",
+      "user_id": 7537903238,
+      "plan_type": "weekly",
+      "amount": 1.01,
+      "currency": "TRX",
+      "status": "paid",
+      "tx_hash": "386b2300a7518c85784acae95f2a1b8af41212e51bfa35f7d18b6720b8a0ddc3",
+      "created_at": "2025-07-04T07:55:00",
+      "updated_at": "2025-07-04T07:57:24",
+      "expires_at": "2025-07-11T16:00:28.485334"
+    }
+  },
+  "activation_codes": {
+    "TEST1234ABCD5678": {
+      "activation_code": "TEST1234ABCD5678",
+      "plan_type": "trial",
+      "user_id": 123456789,
+      "order_id": "TG20241201TEST",
+      "days": 2,
+      "created_at": "2024-12-01T10:00:00",
+      "expires_at": "2024-12-03T23:59:59",
+      "used": false,
+      "used_at": null,
+      "used_by_device": null
+    },
+    "WEEK7DAYSCODE123": {
+      "activation_code": "WEEK7DAYSCODE123",
+      "plan_type": "weekly",
+      "user_id": 123456789,
+      "order_id": "TG20241201WEEK",
+      "days": 7,
+      "created_at": "2024-12-01T10:00:00",
+      "expires_at": "2024-12-08T23:59:59",
+      "used": false,
+      "used_at": null,
+      "used_by_device": null
+    },
+    "MONTH30DAYSCODE1": {
+      "activation_code": "MONTH30DAYSCODE1",
+      "plan_type": "monthly",
+      "user_id": 123456789,
+      "order_id": "TG20241201MONTH",
+      "days": 30,
+      "created_at": "2024-12-01T10:00:00",
+      "expires_at": "2024-12-31T23:59:59",
+      "used": false,
+      "used_at": null,
+      "used_by_device": null
+    },
+    "FREETRIAL2025ABC": {
+      "activation_code": "FREETRIAL2025ABC",
+      "plan_type": "trial",
+      "user_id": 999999999,
+      "order_id": "FREE_TRIAL_001",
+      "days": 2,
+      "created_at": "2024-12-03T10:00:00",
+      "expires_at": "2024-12-05T23:59:59",
+      "used": false,
+      "used_at": null,
+      "used_by_device": null
+    },
+    "685K45Y358PWX9CQ": {
+      "activation_code": "685K45Y358PWX9CQ",
+      "plan_type": "trial",
+      "user_id": 999888777,
+      "order_id": null,
+      "days": 2,
+      "created_at": "2025-07-04T02:39:44.977875",
+      "expires_at": "2025-07-06T02:39:44.977865",
+      "used": false,
+      "used_at": null,
+      "used_by_device": null
+    },
+    "4A4LBQH75L4FMW45": {
+      "activation_code": "4A4LBQH75L4FMW45",
+      "plan_type": "trial",
+      "user_id": 7537903238,
+      "order_id": null,
+      "days": 2,
+      "created_at": "2025-07-04T02:49:00.488356",
+      "expires_at": "2025-07-06T02:49:00.488341",
+      "used": false,
+      "used_at": null,
+      "used_by_device": null
+    },
+    "2WQ67T9TAVMS9MWR": {
+      "activation_code": "2WQ67T9TAVMS9MWR",
+      "plan_type": "trial",
+      "user_id": 7537903238,
+      "order_id": null,
+      "days": 2,
+      "created_at": "2025-07-04T02:49:34.248122",
+      "expires_at": "2025-07-06T02:49:34.248110",
+      "used": false,
+      "used_at": null,
+      "used_by_device": null
+    },
+    "DNDN6ZDE4QSAMX5D": {
+      "activation_code": "DNDN6ZDE4QSAMX5D",
+      "plan_type": "weekly",
+      "user_id": 7537903238,
+      "order_id": "TG615721W5G6",
+      "days": 7,
+      "created_at": "2025-07-04T07:57:24",
+      "expires_at": "2025-07-11T16:00:28.485334",
+      "used": true,
+      "used_at": "2025-07-04T16:12:51.988762",
+      "used_by_device": "c4ad9b7e4c712ba0",
+      "tx_hash": "386b2300a7518c85784acae95f2a1b8af41212e51bfa35f7d18b6720b8a0ddc3"
+    },
+    "N7BFM2X8GVHPQW4K": {
+      "activation_code": "N7BFM2X8GVHPQW4K",
+      "plan_type": "weekly",
+      "user_id": 7537903238,
+      "order_id": "TG615721W5G6",
+      "days": 7,
+      "created_at": "2025-07-11T07:57:24",
+      "expires_at": "2025-07-18T16:00:28.485334",
+      "used": false,
+      "used_at": null,
+      "used_by_device": null,
+      "tx_hash": "386b2300a7518c85784acae95f2a1b8af41212e51bfa35f7d18b6720b8a0ddc3"
+    },
+    "QR9KM3H6VZTYP5XC": {
+      "activation_code": "QR9KM3H6VZTYP5XC",
+      "plan_type": "trial",
+      "user_id": 7537903238,
+      "order_id": null,
+      "days": 2,
+      "created_at": "2025-07-11T07:57:24",
+      "expires_at": "2025-07-13T07:57:24",
+      "used": false,
+      "used_at": null,
+      "used_by_device": null
+    }
+  },
+  "trial_users": [
+    999888777,
+    7537903238
+  ],
+  "transactions": {},
+  "statistics": {
+    "total_revenue": 1.01,
+    "orders_created": 1,
+    "activations_generated": 8
+  }
+}
