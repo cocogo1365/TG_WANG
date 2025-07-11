@@ -25,7 +25,7 @@ class ActivationCodeManager:
         self.db = Database()
         
         # 雲端同步配置
-        self.api_url = "https://tgwang-production.up.railway.app"
+        self.api_url = "https://tgwang.up.railway.app"  # 統一使用同一個服務
         self.api_key = os.getenv("API_KEY", "tg-api-secure-key-2024")
         self.enable_cloud_sync = True
         

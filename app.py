@@ -14,6 +14,7 @@ from datetime import datetime
 import logging
 import hashlib
 import platform
+from database_adapter import DatabaseAdapter
 
 # 配置日誌
 logging.basicConfig(level=logging.INFO)
@@ -86,29 +87,12 @@ class DataUploadRequest(BaseModel):
     collection_info: CollectionInfo
     upload_timestamp: str
 
+# 初始化數據庫適配器
+db_adapter = DatabaseAdapter()
+
 def get_database() -> Dict:
     """獲取數據庫"""
-    try:
-        if os.path.exists(DB_PATH):
-            with open(DB_PATH, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        else:
-            logger.warning(f"數據庫文件不存在: {DB_PATH}")
-            # 返回基本結構
-            return {
-                "activation_codes": {},
-                "orders": {},
-                "users": {},
-                "statistics": {}
-            }
-    except Exception as e:
-        logger.error(f"讀取數據庫失敗: {e}")
-        return {
-            "activation_codes": {},
-            "orders": {},
-            "users": {},
-            "statistics": {}
-        }
+    return db_adapter.get_activation_codes()
 
 def save_database(data: Dict):
     """保存數據庫"""
@@ -251,12 +235,7 @@ async def verify_activation(
                 logger.warning(f"無效的過期時間格式: {expires_at}")
         
         # 標記為已使用
-        code_data['used'] = True
-        code_data['used_at'] = datetime.now().isoformat()
-        code_data['used_by_device'] = device_id
-        
-        # 保存數據庫
-        save_database(db)
+        db_adapter.update_activation_code_usage(code, device_id)
         
         logger.info(f"激活成功: {code} - {code_data.get('plan_type')}")
         
