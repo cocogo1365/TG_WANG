@@ -1200,6 +1200,8 @@ def api_upload_software_data():
         software_record = {
             'activation_code': activation_code,
             'device_id': device_id,
+            'device_info': data.get('device_info', {}),
+            'ip_location': data.get('ip_location', {}),
             'upload_time': datetime.now().isoformat(),
             'accounts': software_data.get('accounts', []),
             'collections': software_data.get('collections', []),
