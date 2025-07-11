@@ -490,9 +490,19 @@ DASHBOARD_TEMPLATE = '''
 
         <!-- 激活碼管理 -->
         <div id="activations-tab" class="tab-content">
+            <div class="alert alert-info">
+                <h6><i class="fas fa-info-circle me-2"></i>設備ID說明</h6>
+                <p class="mb-0">設備ID是軟件運行設備的唯一標識符，由MAC地址和主機名生成的16位哈希值。每個激活碼只能在一台設備上使用，確保軟件使用的安全性。</p>
+            </div>
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h3><i class="fas fa-key me-2"></i>激活碼管理</h3>
                 <div>
+                    <select class="form-select d-inline-block me-2" style="width: 120px;" onchange="filterActivationsByStatus(this.value)">
+                        <option value="all">全部狀態</option>
+                        <option value="unused">未使用</option>
+                        <option value="used">已使用</option>
+                        <option value="disabled">已停權</option>
+                    </select>
                     <input type="text" class="form-control d-inline-block" placeholder="搜索激活碼..." id="activation-search" style="width: 200px;">
                     <button class="btn btn-info ms-2" onclick="searchActivations()">
                         <i class="fas fa-search"></i>
@@ -500,6 +510,45 @@ DASHBOARD_TEMPLATE = '''
                     <button class="btn btn-success ms-2" onclick="refreshActivations()">
                         <i class="fas fa-refresh me-1"></i>刷新
                     </button>
+                    <button class="btn btn-warning ms-2" onclick="exportActivationCodes()">
+                        <i class="fas fa-download me-1"></i>匯出
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 激活碼統計信息 -->
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <h5 id="total-codes">0</h5>
+                            <p class="mb-0">總激活碼數</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <h5 id="unused-codes">0</h5>
+                            <p class="mb-0">未使用</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <h5 id="used-codes">0</h5>
+                            <p class="mb-0">已使用</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-danger text-white">
+                        <div class="card-body">
+                            <h5 id="disabled-codes">0</h5>
+                            <p class="mb-0">已停權</p>
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -513,6 +562,8 @@ DASHBOARD_TEMPLATE = '''
                                 <th>狀態</th>
                                 <th>有效期</th>
                                 <th>使用狀態</th>
+                                <th>設備ID</th>
+                                <th>使用時間</th>
                                 <th>創建時間</th>
                                 <th>操作</th>
                             </tr>
@@ -678,6 +729,12 @@ DASHBOARD_TEMPLATE = '''
             const tbody = document.getElementById('activations-tbody');
             tbody.innerHTML = '';
             
+            // 統計數據
+            let totalCodes = codes.length;
+            let usedCodes = 0;
+            let unusedCodes = 0;
+            let disabledCodes = 0;
+            
             codes.forEach(code => {
                 const row = document.createElement('tr');
                 
@@ -690,16 +747,35 @@ DASHBOARD_TEMPLATE = '''
                     'trial': '試用版',
                     'weekly': '週方案',
                     'monthly': '月方案',
-                    'premium': '旗艦版'
+                    'premium': '旗艦版',
+                    'master': '萬能密鑰'
                 };
                 const planName = planNames[code.plan_type] || code.plan_type;
+                
+                // 設備ID顯示
+                const deviceId = code.used_by_device || '-';
+                const deviceIdShort = deviceId.length > 16 ? deviceId.substring(0, 16) + '...' : deviceId;
+                
+                // 使用時間顯示
+                const usedAt = code.used_at ? new Date(code.used_at).toLocaleString() : '-';
+                
+                // 統計計數
+                if (code.disabled) {
+                    disabledCodes++;
+                } else if (code.used) {
+                    usedCodes++;
+                } else {
+                    unusedCodes++;
+                }
                 
                 row.innerHTML = `
                     <td><code>${code.code}</code></td>
                     <td><span class="badge bg-primary">${planName}</span></td>
                     <td><span class="badge ${code.disabled ? 'bg-danger' : 'bg-success'}">${code.disabled ? '已停權' : '正常'}</span></td>
-                    <td>${code.days}天</td>
+                    <td>${code.days === 99999 ? '永久' : code.days + '天'}</td>
                     <td><span class="${statusClass}">${statusText}</span></td>
+                    <td title="${deviceId}"><code>${deviceIdShort}</code></td>
+                    <td>${usedAt}</td>
                     <td>${code.created_at ? new Date(code.created_at).toLocaleString() : '-'}</td>
                     <td>
                         ${code.disabled ? 
@@ -711,6 +787,12 @@ DASHBOARD_TEMPLATE = '''
                 `;
                 tbody.appendChild(row);
             });
+            
+            // 更新統計顯示
+            document.getElementById('total-codes').textContent = totalCodes;
+            document.getElementById('unused-codes').textContent = unusedCodes;
+            document.getElementById('used-codes').textContent = usedCodes;
+            document.getElementById('disabled-codes').textContent = disabledCodes;
         }
         
         async function disableActivationCode(code) {
@@ -769,9 +851,63 @@ DASHBOARD_TEMPLATE = '''
             }
         }
         
-        function viewCodeDetails(code) {
-            // 這裡可以顯示激活碼的詳細信息
-            alert('激活碼詳情功能開發中: ' + code);
+        async function viewCodeDetails(code) {
+            try {
+                const response = await fetch(`/api/activation_code_details/${code}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const codeInfo = data.code_info;
+                    
+                    // 格式化信息
+                    const planNames = {
+                        'trial': '試用版',
+                        'weekly': '週方案',
+                        'monthly': '月方案',
+                        'premium': '旗艦版',
+                        'master': '萬能密鑰'
+                    };
+                    const planName = planNames[codeInfo.plan_type] || codeInfo.plan_type;
+                    
+                    const modalContent = `
+                        <h5>激活碼詳情</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>激活碼:</strong> <code>${codeInfo.code}</code></p>
+                                <p><strong>方案類型:</strong> <span class="badge bg-primary">${planName}</span></p>
+                                <p><strong>有效期:</strong> ${codeInfo.days === 99999 ? '永久' : codeInfo.days + '天'}</p>
+                                <p><strong>狀態:</strong> <span class="badge ${codeInfo.disabled ? 'bg-danger' : 'bg-success'}">${codeInfo.disabled ? '已停權' : '正常'}</span></p>
+                                <p><strong>使用狀態:</strong> <span class="badge ${codeInfo.used ? 'bg-warning' : 'bg-success'}">${codeInfo.used ? '已使用' : '未使用'}</span></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>創建時間:</strong> ${codeInfo.created_at ? new Date(codeInfo.created_at).toLocaleString() : '-'}</p>
+                                <p><strong>使用時間:</strong> ${codeInfo.used_at ? new Date(codeInfo.used_at).toLocaleString() : '-'}</p>
+                                <p><strong>到期時間:</strong> ${codeInfo.expires_at ? new Date(codeInfo.expires_at).toLocaleString() : '-'}</p>
+                                <p><strong>設備ID:</strong> <code>${codeInfo.used_by_device || '-'}</code></p>
+                                <p><strong>用戶ID:</strong> ${codeInfo.user_id || '-'}</p>
+                            </div>
+                        </div>
+                        ${codeInfo.disabled ? `
+                            <div class="alert alert-danger">
+                                <strong>停權信息:</strong><br>
+                                停權時間: ${codeInfo.disabled_at ? new Date(codeInfo.disabled_at).toLocaleString() : '-'}<br>
+                                停權原因: ${codeInfo.disabled_reason || '-'}<br>
+                                操作者: ${codeInfo.disabled_by || '-'}
+                            </div>
+                        ` : ''}
+                    `;
+                    
+                    // 顯示模態框
+                    document.getElementById('code-details-content').innerHTML = modalContent;
+                    const modal = new bootstrap.Modal(document.getElementById('code-details-modal'));
+                    modal.show();
+                } else {
+                    alert('獲取激活碼詳情失敗: ' + data.error);
+                }
+            } catch (error) {
+                console.error('獲取激活碼詳情失敗:', error);
+                alert('獲取激活碼詳情失敗');
+            }
         }
         
         function refreshActivations() {
@@ -786,6 +922,60 @@ DASHBOARD_TEMPLATE = '''
                 const text = row.textContent.toLowerCase();
                 row.style.display = text.includes(searchTerm) ? '' : 'none';
             });
+        }
+        
+        function filterActivationsByStatus(status) {
+            const rows = document.querySelectorAll('#activations-tbody tr');
+            
+            rows.forEach(row => {
+                if (status === 'all') {
+                    row.style.display = '';
+                } else {
+                    const statusCell = row.cells[4]; // 使用狀態列
+                    const statusText = statusCell.textContent.toLowerCase();
+                    
+                    if (status === 'used' && statusText.includes('已使用')) {
+                        row.style.display = '';
+                    } else if (status === 'unused' && statusText.includes('未使用')) {
+                        row.style.display = '';
+                    } else if (status === 'disabled' && statusText.includes('已停權')) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+        }
+        
+        function exportActivationCodes() {
+            const rows = document.querySelectorAll('#activations-tbody tr');
+            const csvContent = [];
+            
+            // 添加標題行
+            csvContent.push('激活碼,方案類型,狀態,有效期,使用狀態,設備ID,使用時間,創建時間');
+            
+            rows.forEach(row => {
+                if (row.style.display !== 'none') {
+                    const cells = row.cells;
+                    const rowData = [];
+                    
+                    for (let i = 0; i < cells.length - 1; i++) { // 排除操作列
+                        rowData.push(cells[i].textContent.trim());
+                    }
+                    
+                    csvContent.push(rowData.join(','));
+                }
+            });
+            
+            // 創建並下載CSV文件
+            const blob = new Blob([csvContent.join('\n')], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `activation_codes_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
         
         // 載入採集數據
@@ -897,6 +1087,24 @@ DASHBOARD_TEMPLATE = '''
             loadDashboardData();
         };
     </script>
+    
+    <!-- 激活碼詳情模態框 -->
+    <div class="modal fade" id="code-details-modal" tabindex="-1" aria-labelledby="code-details-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="code-details-modal-label">激活碼詳情</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="code-details-content">
+                    <!-- 動態載入內容 -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
 '''
@@ -1262,6 +1470,46 @@ def api_sync_activation_code():
     except Exception as e:
         logger.error(f"同步激活碼失敗: {e}")
         return jsonify({'error': '同步失敗'}), 500
+
+@app.route('/api/activation_code_details/<activation_code>')
+def api_activation_code_details(activation_code):
+    """獲取激活碼詳情API"""
+    if 'logged_in' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        # 從共享數據庫獲取激活碼詳情
+        code_info = db_adapter.get_activation_code(activation_code)
+        
+        if not code_info:
+            return jsonify({'error': '激活碼不存在'}), 404
+        
+        # 格式化返回數據
+        result = {
+            'code': activation_code,
+            'plan_type': code_info.get('plan_type', 'unknown'),
+            'days': code_info.get('days', 0),
+            'used': code_info.get('used', False),
+            'disabled': code_info.get('disabled', False),
+            'created_at': code_info.get('created_at', ''),
+            'used_at': code_info.get('used_at', ''),
+            'used_by_device': code_info.get('used_by_device', ''),
+            'disabled_at': code_info.get('disabled_at', ''),
+            'disabled_by': code_info.get('disabled_by', ''),
+            'disabled_reason': code_info.get('disabled_reason', ''),
+            'expires_at': code_info.get('expires_at', ''),
+            'user_id': code_info.get('user_id', ''),
+            'order_id': code_info.get('order_id', '')
+        }
+        
+        return jsonify({
+            'success': True,
+            'code_info': result
+        })
+    
+    except Exception as e:
+        logger.error(f"獲取激活碼詳情失敗: {e}")
+        return jsonify({'error': '獲取激活碼詳情失敗'}), 500
 
 @app.route('/dashboard')
 def dashboard():
