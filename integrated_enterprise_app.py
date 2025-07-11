@@ -13,9 +13,13 @@ from datetime import datetime, timedelta
 from flask import Flask, render_template_string, request, redirect, url_for, session, jsonify, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests
+from database_adapter import DatabaseAdapter
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
+
+# 初始化數據庫適配器
+db_adapter = DatabaseAdapter()
 
 # 配置
 BOT_DATABASE_PATH = os.environ.get('BOT_DATABASE_PATH', 'bot_database.json')
@@ -41,6 +45,33 @@ USER_ROLES = {
 def get_bot_database():
     """獲取機器人數據庫"""
     try:
+        # 優先使用數據庫適配器
+        db_data = db_adapter.get_activation_codes()
+        
+        # 如果有PostgreSQL數據，使用它
+        if db_data and db_data.get("activation_codes"):
+            # 補充其他必要字段
+            if os.path.exists(BOT_DATABASE_PATH):
+                with open(BOT_DATABASE_PATH, 'r', encoding='utf-8') as f:
+                    local_data = json.load(f)
+                    # 合併數據：激活碼使用PostgreSQL，其他使用本地
+                    local_data["activation_codes"] = db_data["activation_codes"]
+                    return local_data
+            else:
+                return {
+                    "users": {},
+                    "orders": {},
+                    "activation_codes": db_data["activation_codes"],
+                    "trial_users": [],
+                    "transactions": {},
+                    "statistics": {
+                        "total_revenue": 0,
+                        "orders_created": 0,
+                        "activations_generated": 0
+                    }
+                }
+        
+        # 降級到本地JSON文件
         if os.path.exists(BOT_DATABASE_PATH):
             with open(BOT_DATABASE_PATH, 'r', encoding='utf-8') as f:
                 return json.load(f)
@@ -1135,28 +1166,38 @@ def sync_activation_code():
                 "message": "數據不完整"
             }), 400
         
-        # 讀取現有數據庫
-        bot_data = get_bot_database()
+        # 使用數據庫適配器保存激活碼
+        success = db_adapter.save_activation_code(activation_code, code_data)
         
-        # 更新激活碼
-        bot_data['activation_codes'][activation_code] = code_data
+        # 同時更新本地JSON文件（向後兼容）
+        try:
+            bot_data = get_bot_database()
+            bot_data['activation_codes'][activation_code] = code_data
+            
+            # 更新統計
+            if 'statistics' not in bot_data:
+                bot_data['statistics'] = {}
+            if 'activations_generated' not in bot_data['statistics']:
+                bot_data['statistics']['activations_generated'] = 0
+            
+            bot_data['statistics']['activations_generated'] = len(bot_data['activation_codes'])
+            
+            # 保存到本地JSON文件
+            with open(BOT_DATABASE_PATH, 'w', encoding='utf-8') as f:
+                json.dump(bot_data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"本地JSON保存失敗: {e}")
         
-        # 更新統計
-        if 'statistics' not in bot_data:
-            bot_data['statistics'] = {}
-        if 'activations_generated' not in bot_data['statistics']:
-            bot_data['statistics']['activations_generated'] = 0
-        
-        bot_data['statistics']['activations_generated'] = len(bot_data['activation_codes'])
-        
-        # 保存到數據庫
-        with open(BOT_DATABASE_PATH, 'w', encoding='utf-8') as f:
-            json.dump(bot_data, f, ensure_ascii=False, indent=2)
-        
-        return jsonify({
-            "success": True,
-            "message": f"激活碼 {activation_code} 同步成功"
-        })
+        if success:
+            return jsonify({
+                "success": True,
+                "message": f"激活碼 {activation_code} 同步成功"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "message": f"激活碼 {activation_code} 同步失敗"
+            }), 500
         
     except Exception as e:
         return jsonify({
