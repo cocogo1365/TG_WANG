@@ -629,6 +629,32 @@ DASHBOARD_TEMPLATE = '''
                 </div>
             </div>
         </div>
+        
+        <!-- 用戶管理 -->
+        <div id="users-tab" class="tab-content">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3><i class="fas fa-users me-2"></i>用戶管理</h3>
+            </div>
+            
+            <div class="data-table">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>用戶ID</th>
+                                <th>用戶名稱</th>
+                                <th>註冊時間</th>
+                                <th>狀態</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-tbody">
+                            <!-- 動態載入 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
         {% endif %}
     </div>
 
@@ -650,7 +676,11 @@ DASHBOARD_TEMPLATE = '''
             document.querySelectorAll('.nav-link').forEach(link => {
                 link.classList.remove('active');
             });
-            event.target.classList.add('active');
+            // 找到被點擊的連結並設為活動狀態
+            const clickedLink = document.querySelector(`[onclick="switchTab('${tabName}')"]`);
+            if (clickedLink) {
+                clickedLink.classList.add('active');
+            }
             
             // 更新內容顯示
             document.querySelectorAll('.tab-content').forEach(content => {
@@ -680,6 +710,9 @@ DASHBOARD_TEMPLATE = '''
                         break;
                     case 'statistics':
                         await loadStatisticsData();
+                        break;
+                    case 'users':
+                        await loadUsersData();
                         break;
                 }
             } catch (error) {
@@ -986,6 +1019,50 @@ DASHBOARD_TEMPLATE = '''
                 updateCollectedDataTable(data.collected_data || []);
             } catch (error) {
                 console.error('載入採集數據失敗:', error);
+            }
+        }
+        
+        // 載入統計數據
+        async function loadStatisticsData() {
+            try {
+                const response = await fetch('/api/statistics');
+                const data = await response.json();
+                
+                // 顯示統計數據
+                console.log('統計數據:', data);
+                
+            } catch (error) {
+                console.error('載入統計數據失敗:', error);
+            }
+        }
+        
+        // 載入用戶數據
+        async function loadUsersData() {
+            try {
+                const response = await fetch('/api/users');
+                const data = await response.json();
+                
+                let tbody = document.getElementById('users-tbody');
+                if (tbody) {
+                    tbody.innerHTML = '';
+                    
+                    data.users.forEach(user => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${user.id}</td>
+                            <td>${user.username}</td>
+                            <td>${user.created_at}</td>
+                            <td><span class="badge bg-success">正常</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" onclick="viewUserDetails('${user.id}')">詳情</button>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
+                
+            } catch (error) {
+                console.error('載入用戶數據失敗:', error);
             }
         }
         
@@ -1470,6 +1547,60 @@ def api_sync_activation_code():
     except Exception as e:
         logger.error(f"同步激活碼失敗: {e}")
         return jsonify({'error': '同步失敗'}), 500
+
+@app.route('/api/statistics')
+def api_statistics():
+    """統計分析API"""
+    if 'logged_in' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        bot_db = get_bot_database()
+        
+        # 計算統計數據
+        stats = {
+            'total_users': len(bot_db.get('users', {})),
+            'total_orders': len(bot_db.get('orders', {})),
+            'total_revenue': bot_db.get('statistics', {}).get('total_revenue', 0),
+            'activation_usage': {
+                'total': len(bot_db.get('activation_codes', {})),
+                'used': sum(1 for code in bot_db.get('activation_codes', {}).values() if code.get('used', False)),
+                'disabled': sum(1 for code in bot_db.get('activation_codes', {}).values() if code.get('disabled', False))
+            }
+        }
+        
+        return jsonify({'statistics': stats})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/users')
+def api_users():
+    """用戶管理API"""
+    if 'logged_in' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        bot_db = get_bot_database()
+        users_data = bot_db.get('users', {})
+        
+        # 格式化用戶數據
+        users = []
+        for user_id, user_info in users_data.items():
+            users.append({
+                'id': user_id,
+                'username': user_info.get('username', ''),
+                'first_name': user_info.get('first_name', ''),
+                'last_name': user_info.get('last_name', ''),
+                'created_at': user_info.get('created_at', ''),
+                'language': user_info.get('language', ''),
+                'is_premium': user_info.get('is_premium', False)
+            })
+        
+        return jsonify({'users': users})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/activation_code_details/<activation_code>')
 def api_activation_code_details(activation_code):
