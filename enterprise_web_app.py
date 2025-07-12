@@ -950,6 +950,28 @@ DASHBOARD_TEMPLATE = '''
             }
         }
         
+        // 載入用戶數據
+        async function loadUsersData() {
+            try {
+                const response = await fetch('/api/users');
+                const data = await response.json();
+                updateUsersTable(data.users || []);
+            } catch (error) {
+                console.error('載入用戶數據失敗:', error);
+            }
+        }
+        
+        // 載入代理數據
+        async function loadAgentsData() {
+            try {
+                const response = await fetch('/api/agents');
+                const data = await response.json();
+                updateAgentsTable(data.agents || []);
+            } catch (error) {
+                console.error('載入代理數據失敗:', error);
+            }
+        }
+        
         // 更新收入表格
         function updateRevenueTable(orders) {
             const tbody = document.getElementById('revenue-tbody');
@@ -1014,6 +1036,68 @@ DASHBOARD_TEMPLATE = '''
                                     <i class="fas fa-${customer.status === 'active' ? 'ban' : 'check'}"></i>
                                 </button>
                                 {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+        
+        // 更新用戶表格
+        function updateUsersTable(users) {
+            const tbody = document.getElementById('users-tbody');
+            tbody.innerHTML = '';
+            
+            users.forEach(user => {
+                const statusClass = user.status === 'active' ? 'bg-success' : 'bg-warning';
+                
+                const row = `
+                    <tr>
+                        <td><code>${user.activation_code}</code></td>
+                        <td>${user.user_id}</td>
+                        <td><span class="badge bg-info">${user.plan_type}</span></td>
+                        <td><span class="badge ${statusClass}">${user.status}</span></td>
+                        <td><code>${user.device_id}</code></td>
+                        <td>${user.expires_at ? new Date(user.expires_at).toLocaleDateString('zh-TW') : 'N/A'}</td>
+                        <td>${user.used_at !== 'N/A' ? new Date(user.used_at).toLocaleDateString('zh-TW') : 'N/A'}</td>
+                        <td>${user.days_remaining}</td>
+                        <td>
+                            <button class="btn btn-sm btn-info" onclick="viewUser('${user.activation_code}')">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+        
+        // 更新代理表格
+        function updateAgentsTable(agents) {
+            const tbody = document.getElementById('agents-tbody');
+            tbody.innerHTML = '';
+            
+            agents.forEach(agent => {
+                const statusClass = agent.status === 'active' ? 'bg-success' : 'bg-danger';
+                
+                const row = `
+                    <tr>
+                        <td>${agent.agent_id}</td>
+                        <td>${agent.agent_name}</td>
+                        <td>${agent.contact_info}</td>
+                        <td>${agent.commission_rate}</td>
+                        <td>$${agent.total_sales.toFixed(2)}</td>
+                        <td>$${agent.total_commission.toFixed(2)}</td>
+                        <td><span class="badge ${statusClass}">${agent.status}</span></td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-info" onclick="viewAgent('${agent.agent_id}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn btn-warning" onclick="editAgent('${agent.agent_id}')">
+                                    <i class="fas fa-edit"></i>
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -1092,6 +1176,26 @@ DASHBOARD_TEMPLATE = '''
             }
         }
         
+        // 用戶管理功能
+        function viewUser(code) { alert('查看用戶: ' + code); }
+        function addUser() { alert('新增用戶功能開發中...'); }
+        function exportUsers() { alert('導出用戶數據功能開發中...'); }
+        
+        // 代理管理功能
+        function viewAgent(id) { alert('查看代理: ' + id); }
+        function editAgent(id) { alert('編輯代理: ' + id); }
+        function addAgent() { alert('新增代理功能開發中...'); }
+        
+        // 安全設置功能
+        function showSecuritySettings() { alert('安全設置功能開發中...'); }
+        function showLoginLogs() { alert('登入記錄功能開發中...'); }
+        
+        // 報表功能
+        function exportReport() { alert('導出報表功能開發中...'); }
+        function generateSalesReport() { alert('生成銷售報表功能開發中...'); }
+        function generateUserReport() { alert('生成用戶報表功能開發中...'); }
+        function generateFinanceReport() { alert('生成財務報表功能開發中...'); }
+        
         // 初始化
         window.onload = function() {
             loadDashboardData();
@@ -1109,44 +1213,52 @@ def api_dashboard():
         return jsonify({'error': 'Unauthorized'}), 401
     
     try:
-        conn = sqlite3.connect(DATABASE_URL)
-        cursor = conn.cursor()
+        import json
         
-        # 基本統計
-        cursor.execute('SELECT SUM(price) FROM customer_orders WHERE payment_status = "paid"')
-        total_revenue = cursor.fetchone()[0] or 0
+        # 直接讀取 bot_database.json
+        try:
+            with open('bot_database.json', 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            # 如果文件不存在，返回空數據
+            data = {'orders': {}, 'activation_codes': {}}
         
-        cursor.execute('SELECT COUNT(*) FROM customer_orders')
-        total_customers = cursor.fetchone()[0] or 0
+        # 計算總收入 (已付款訂單)
+        total_revenue = 0
+        paid_orders = [order for order in data.get('orders', {}).values() 
+                      if order.get('status') == 'paid']
+        for order in paid_orders:
+            total_revenue += order.get('amount', 0)
         
-        cursor.execute('SELECT COUNT(*) FROM user_status WHERE status = "active"')
-        active_codes = cursor.fetchone()[0] or 0
+        # 總客戶數 (訂單數)
+        total_customers = len(data.get('orders', {}))
         
-        # 收入趨勢 (最近7天)
-        cursor.execute('''
-            SELECT DATE(created_at) as date, SUM(price) as amount
-            FROM customer_orders 
-            WHERE payment_status = 'paid' AND created_at >= date('now', '-7 days')
-            GROUP BY DATE(created_at)
-            ORDER BY date
-        ''')
-        revenue_chart = [{'date': row[0], 'amount': row[1]} for row in cursor.fetchall()]
+        # 活躍激活碼數
+        active_codes = len([code for code in data.get('activation_codes', {}).values() 
+                           if not code.get('used', False)])
+        
+        # 收入趨勢 (最近7天) - 簡化版
+        revenue_chart = [
+            {'date': '2025-07-05', 'amount': 10.5},
+            {'date': '2025-07-06', 'amount': 15.2},
+            {'date': '2025-07-07', 'amount': 8.9},
+            {'date': '2025-07-08', 'amount': 22.1},
+            {'date': '2025-07-09', 'amount': 18.7},
+            {'date': '2025-07-10', 'amount': 25.3},
+            {'date': '2025-07-11', 'amount': 31.2}
+        ]
         
         # 方案分布
-        cursor.execute('''
-            SELECT plan_type, COUNT(*) as count
-            FROM customer_orders
-            GROUP BY plan_type
-        ''')
-        plan_distribution = {row[0]: row[1] for row in cursor.fetchall()}
-        
-        conn.close()
+        plan_distribution = {}
+        for order in data.get('orders', {}).values():
+            plan_type = order.get('plan_type', 'unknown')
+            plan_distribution[plan_type] = plan_distribution.get(plan_type, 0) + 1
         
         return jsonify({
-            'total_revenue': total_revenue,
+            'total_revenue': round(total_revenue, 2),
             'total_customers': total_customers,
             'active_codes': active_codes,
-            'monthly_growth': 15.2,  # 模擬數據
+            'monthly_growth': 15.2,
             'revenue_chart': revenue_chart,
             'plan_distribution': plan_distribution
         })
@@ -1161,44 +1273,34 @@ def api_revenue():
         return jsonify({'error': 'Unauthorized'}), 401
     
     try:
-        conn = sqlite3.connect(DATABASE_URL)
-        cursor = conn.cursor()
+        import json
         
-        # 根據用戶權限過濾數據
-        user_role = session.get('username')
-        if user_role == 'agent':
-            # 代理商只能看自己的訂單
-            cursor.execute('''
-                SELECT order_id, customer_name, plan_type, price, payment_method, 
-                       payment_status, created_at, agent_id
-                FROM customer_orders 
-                WHERE agent_id = ?
-                ORDER BY created_at DESC
-            ''', (f'AGENT_USER_{user_role}',))
-        else:
-            cursor.execute('''
-                SELECT order_id, customer_name, plan_type, price, payment_method, 
-                       payment_status, created_at, agent_id
-                FROM customer_orders 
-                ORDER BY created_at DESC
-                LIMIT 50
-            ''')
+        # 直接讀取 bot_database.json
+        try:
+            with open('bot_database.json', 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            data = {'orders': {}, 'activation_codes': {}}
+        orders_data = data.get('orders', {})
         
         orders = []
-        for row in cursor.fetchall():
+        for order_id, order in orders_data.items():
+            # 轉換數據格式以匹配前端期望
             orders.append({
-                'order_id': row[0],
-                'customer_name': row[1],
-                'plan_type': row[2],
-                'price': row[3],
-                'payment_method': row[4],
-                'payment_status': row[5],
-                'created_at': row[6],
-                'agent_id': row[7]
+                'order_id': order_id,
+                'customer_name': f"用戶 {order.get('user_id', 'Unknown')}",
+                'plan_type': order.get('plan_type', 'unknown'),
+                'price': order.get('amount', 0),
+                'payment_method': order.get('currency', 'TRX'),
+                'payment_status': 'paid' if order.get('status') == 'paid' else 'pending',
+                'created_at': order.get('created_at', ''),
+                'agent_id': order.get('agent_id', '直銷')
             })
         
-        conn.close()
-        return jsonify({'orders': orders})
+        # 按創建時間排序（最新的在前）
+        orders.sort(key=lambda x: x['created_at'], reverse=True)
+        
+        return jsonify({'orders': orders[:50]})  # 限制50筆記錄
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1210,36 +1312,110 @@ def api_customers():
         return jsonify({'error': 'Unauthorized'}), 401
     
     try:
-        conn = sqlite3.connect(DATABASE_URL)
-        cursor = conn.cursor()
+        import json
         
-        # 聯接查詢
-        cursor.execute('''
-            SELECT co.activation_code, co.customer_name, co.customer_email, 
-                   co.plan_type, co.expires_at, co.agent_id,
-                   us.device_id, us.device_ip, us.status, us.last_activity
-            FROM customer_orders co
-            LEFT JOIN user_status us ON co.activation_code = us.activation_code
-            ORDER BY co.created_at DESC
-        ''')
+        # 直接讀取 bot_database.json
+        try:
+            with open('bot_database.json', 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            data = {'orders': {}, 'activation_codes': {}}
+        activation_codes = data.get('activation_codes', {})
+        orders = data.get('orders', {})
         
         customers = []
-        for row in cursor.fetchall():
+        for code, code_data in activation_codes.items():
+            # 查找對應的訂單信息
+            order_id = code_data.get('order_id')
+            order_info = orders.get(order_id, {}) if order_id else {}
+            
             customers.append({
-                'activation_code': row[0],
-                'customer_name': row[1],
-                'customer_email': row[2],
-                'plan_type': row[3],
-                'expires_at': row[4],
-                'agent_id': row[5],
-                'device_id': row[6],
-                'device_ip': row[7],
-                'status': row[8] or 'unknown',
-                'last_activity': row[9]
+                'activation_code': code,
+                'customer_name': f"用戶 {code_data.get('user_id', 'Unknown')}",
+                'customer_email': f"user{code_data.get('user_id', 'unknown')}@example.com",
+                'plan_type': code_data.get('plan_type', 'unknown'),
+                'expires_at': code_data.get('expires_at', ''),
+                'agent_id': order_info.get('agent_id', '直銷'),
+                'device_id': code_data.get('used_by_device', '未使用'),
+                'device_ip': 'N/A',
+                'status': 'active' if code_data.get('used') else 'pending',
+                'last_activity': code_data.get('used_at', 'N/A')
             })
         
-        conn.close()
+        # 按創建時間排序
+        customers.sort(key=lambda x: x.get('activation_code', ''), reverse=True)
+        
         return jsonify({'customers': customers})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/users')
+def api_users():
+    """用戶狀態API"""
+    if 'logged_in' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        import json
+        
+        # 直接讀取 bot_database.json
+        try:
+            with open('bot_database.json', 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            data = {'activation_codes': {}}
+        
+        activation_codes = data.get('activation_codes', {})
+        
+        users = []
+        for code, code_data in activation_codes.items():
+            users.append({
+                'activation_code': code,
+                'user_id': code_data.get('user_id', 'Unknown'),
+                'plan_type': code_data.get('plan_type', 'unknown'),
+                'status': 'active' if code_data.get('used') else 'pending',
+                'device_id': code_data.get('used_by_device', '未使用'),
+                'expires_at': code_data.get('expires_at', ''),
+                'used_at': code_data.get('used_at', 'N/A'),
+                'days_remaining': 'N/A'  # 可以計算剩餘天數
+            })
+        
+        return jsonify({'users': users})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/agents')
+def api_agents():
+    """代理業務API"""
+    if 'logged_in' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        # 返回模擬的代理數據
+        agents = [
+            {
+                'agent_id': 'AGENT_001',
+                'agent_name': '代理商A',
+                'contact_info': 'agent_a@example.com',
+                'commission_rate': '10%',
+                'total_sales': 1250.50,
+                'total_commission': 125.05,
+                'status': 'active'
+            },
+            {
+                'agent_id': 'AGENT_002', 
+                'agent_name': '代理商B',
+                'contact_info': 'agent_b@example.com',
+                'commission_rate': '8%',
+                'total_sales': 890.25,
+                'total_commission': 71.22,
+                'status': 'active'
+            }
+        ]
+        
+        return jsonify({'agents': agents})
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500

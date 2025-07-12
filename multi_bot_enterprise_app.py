@@ -215,132 +215,207 @@ LOGIN_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TG旺企業管理系統 - 登入</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body {
-            background: linear-gradient(135deg, #1f1c2c 0%, #928dab 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        .login-card {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(15px);
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-            overflow: hidden;
-            max-width: 420px;
-            width: 100%;
-            border: 1px solid rgba(255,255,255,0.3);
-        }
-        .login-header {
-            background: linear-gradient(45deg, #12c2e9, #c471ed, #f64f59);
-            color: white;
-            padding: 40px;
-            text-align: center;
-        }
-        .login-body {
-            padding: 35px;
-        }
-        .logo-icon {
-            font-size: 60px;
-            margin-bottom: 20px;
-            text-shadow: 0 0 10px rgba(0,0,0,0.5);
-        }
-        .btn-primary {
-            background: linear-gradient(45deg, #12c2e9, #c471ed, #f64f59);
-            border: none;
-            padding: 14px;
-            font-weight: 700;
-            transition: transform 0.3s;
-        }
-        .btn-primary:hover {
-            transform: scale(1.05);
-        }
-        .form-control {
-            border-radius: 10px;
-            padding: 14px;
-            border: none;
-            background: rgba(255,255,255,0.2);
-            color: white;
-        }
-        .form-control::placeholder {
-            color: #ddd;
-        }
-        .form-control:focus {
-            box-shadow: 0 0 15px rgba(255,255,255,0.5);
-        }
-        .form-label {
-            color: white;
-        }
-        .alert-danger {
-            background: rgba(220, 53, 69, 0.2);
-            border: 1px solid rgba(220, 53, 69, 0.5);
-            color: white;
-            backdrop-filter: blur(5px);
-        }
-        .alert-info {
-            background: rgba(255,255,255,0.2);
-            border: none;
-            color: white;
-            backdrop-filter: blur(5px);
-        }
-        small.text-muted {
-            color: rgba(255,255,255,0.6) !important;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TG-WANG 登入</title>
+  <!-- 載入字體與FontAwesome圖示 -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"/>
+  <style>
+    /* 頁面主背景，使用暗色並置中 */
+    body {
+      background: #18181b;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
+    }
+    /* 登入區塊主體：霓虹科技感+陰影+圓角 */
+    .neon-box {
+      position: relative;
+      background: #23232a;
+      border-radius: 22px;
+      box-shadow: 0 0 44px #09092b, 0 4px 40px #0ef6f6;
+      padding: 38px 30px 20px 30px;
+      width: 370px;
+      color: #fff;
+      overflow: hidden;
+      z-index: 1;
+    }
+    /* 外層霓虹光暈動畫框 */
+    .neon-box::before, .neon-box::after {
+      content: "";
+      position: absolute;
+      border-radius: 22px;
+      z-index: 0;
+      pointer-events: none;
+    }
+    /* 外部動態霓虹邊框 */
+    .neon-box::before {
+      inset: 0;
+      border: 2px solid;
+      border-color: #0ff6f6 #fe41a3 #0ff6f6 #fe41a3;
+      filter: blur(3px);
+      opacity: 0.8;
+      animation: borderGlow 3s linear infinite;
+    }
+    /* 內部暗色裝飾邊框 */
+    .neon-box::after {
+      inset: 7px;
+      border: 1.5px solid #333;
+    }
+    /* 邊框光暈動畫 */
+    @keyframes borderGlow {
+      0%   { filter: blur(3px) brightness(1.2);}
+      50%  { filter: blur(7px) brightness(1.5);}
+      100% { filter: blur(3px) brightness(1.2);}
+    }
+    /* LOGO字與icon，中央、亮色光暈、彈跳心跳動畫 */
+    .neon-logo {
+      font-size: 2.1em;
+      font-weight: 800;
+      letter-spacing: 4px;
+      margin-bottom: 14px;
+      text-align: center;
+      position: relative;
+      z-index: 2;
+      color: #0ff6f6;
+      text-shadow: 0 0 16px #0ff6f6, 0 0 40px #fe41a3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .neon-logo .beat {
+      color: #fe41a3;
+      animation: beat 1s infinite;
+      font-size: 1.1em;
+      margin-left: 2px;
+    }
+    /* 心跳動畫效果 */
+    @keyframes beat {
+      0%, 100% { transform: scale(1);}
+      25% { transform: scale(1.25);}
+      50% { transform: scale(1);}
+    }
+    /* 標題文字樣式 */
+    .neon-title {
+      text-align: center;
+      font-size: 1.16em;
+      color: #fff;
+      margin-bottom: 18px;
+      opacity: .82;
+      z-index: 2;
+      letter-spacing: 1px;
+    }
+    /* 輸入框，暗底，圓角，霓虹聚焦 */
+    .neon-input {
+      background: #242436;
+      border: 1.5px solid #36364b;
+      outline: none;
+      border-radius: 14px;
+      padding: 12px 18px;
+      color: #fff;
+      width: 100%;
+      margin-bottom: 18px;
+      font-size: 1em;
+      transition: border 0.3s, box-shadow 0.3s;
+      z-index: 2;
+      position: relative;
+      box-sizing: border-box;
+    }
+    .neon-input::placeholder {
+      color: #999;
+    }
+    .neon-input:focus {
+      border: 1.5px solid #0ff6f6;
+      box-shadow: 0 0 10px #0ff6f699;
+    }
+    /* 霓虹按鈕樣式，漸層+hover效果 */
+    .neon-btn {
+      width: 100%;
+      padding: 12px 0;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(90deg, #08f7fe 0%, #fe41a3 100%);
+      color: #fff;
+      font-weight: 700;
+      font-size: 1.12em;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 14px #08f7fe44;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.3s;
+      z-index: 2;
+      position: relative;
+    }
+    .neon-btn:hover {
+      transform: scale(1.04);
+      box-shadow: 0 6px 22px #fe41a355, 0 0 14px #08f7fe77;
+    }
+    /* 錯誤訊息區塊 */
+    .neon-alert {
+      background: rgba(254, 65, 163, 0.15);
+      border: 1px solid #fe41a3;
+      color: #fff;
+      border-radius: 8px;
+      padding: 10px 15px;
+      font-size: 0.97em;
+      margin-bottom: 15px;
+      text-align: center;
+      z-index: 2;
+      position: relative;
+      box-shadow: 0 0 8px #fe41a388;
+    }
+    /* 測試帳號小提醒區 */
+    .neon-testinfo {
+      color: #bbb;
+      font-size: 0.97em;
+      background: rgba(0,0,0,0.12);
+      border-radius: 8px;
+      padding: 8px 8px 6px 8px;
+      margin-top: 10px;
+      text-align: center;
+      z-index: 2;
+      position: relative;
+    }
+    /* 響應式，手機適配 */
+    @media (max-width: 450px) {
+      .neon-box { width: 97vw; min-width: unset; }
+      .neon-logo { font-size: 1.2em;}
+    }
+  </style>
 </head>
 <body>
-    <div class="login-card">
-        <div class="login-header">
-            <div class="logo-icon">
-                <i class="fas fa-building"></i>
-            </div>
-            <h2>TG旺企業管理系統</h2>
-            <p class="mb-0">Enterprise Management Portal</p>
-        </div>
-        <div class="login-body">
-            <form method="POST">
-                <div class="mb-3">
-                    <label class="form-label">
-                        <i class="fas fa-user me-2"></i>帳號
-                    </label>
-                    <input type="text" name="username" class="form-control" placeholder="請輸入帳號" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">
-                        <i class="fas fa-lock me-2"></i>密碼
-                    </label>
-                    <input type="password" name="password" class="form-control" placeholder="請輸入密碼" required>
-                </div>
-                <button type="submit" class="btn btn-primary w-100">
-                    <i class="fas fa-sign-in-alt me-2"></i>登入
-                </button>
-            </form>
-            {% if error %}
-            <div class="alert alert-danger mt-3">
-                <i class="fas fa-exclamation-triangle me-2"></i>{{ error }}
-            </div>
-            {% else %}
-            <div class="alert alert-info mt-3">
-                <i class="fas fa-info-circle me-2"></i>請輸入您的登入資訊
-            </div>
-            {% endif %}
-            <div class="mt-4 text-center">
-                <small class="text-muted">
-                    <strong>測試帳號:</strong><br>
-                    admin/tgwang2024 (管理員)<br>
-                    agent/agent123 (代理商)
-                </small>
-            </div>
-        </div>
+  <!-- 登入表單，POST至後端 -->
+  <form class="neon-box" method="POST" autocomplete="on">
+    <!-- LOGO行，科技感ICON + TG-WANG 字母LOGO + 心跳icon動畫 -->
+    <div class="neon-logo">
+      <i class="fa-solid fa-robot"></i>
+      TG‑WANG
+      <i class="fa-solid fa-heartbeat beat"></i>
     </div>
+    <div class="neon-title">企業用自動化登入入口</div>
+    <!-- 帳號輸入框，支援自動補全 -->
+    <input class="neon-input" type="text" name="username" placeholder="帳號 (Username)" required autocomplete="username">
+    <!-- 密碼輸入框，支援自動補全 -->
+    <input class="neon-input" type="password" name="password" placeholder="密碼 (Password)" required autocomplete="current-password">
+    <!-- 登入按鈕 -->
+    <button type="submit" class="neon-btn">登入</button>
+    <!-- 錯誤訊息顯示區 -->
+    {% if error %}
+    <div class="neon-alert">
+      <i class="fa-solid fa-circle-exclamation"></i> {{ error }}
+    </div>
+    {% endif %}
+    <!-- 測試帳號資訊 -->
+    <div class="neon-testinfo">
+      <strong>測試帳號：</strong><br>
+      admin / tgwang2024（管理員）<br>
+      agent / agent123（代理商）
+    </div>
+  </form>
 </body>
 </html>
 '''
