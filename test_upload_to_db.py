@@ -9,7 +9,7 @@ from datetime import datetime
 # API 端點
 # 修改為你的實際 Railway 應用 URL
 # 格式通常是: https://你的應用名稱.up.railway.app
-API_URL = "https://tg-wang.up.railway.app/api/upload_collection_data"  # 請確認你的實際 URL
+API_URL = "https://tgwang.up.railway.app/api/upload_collection_data"  # 修正：移除連字符
 
 # 測試數據
 test_data = {
