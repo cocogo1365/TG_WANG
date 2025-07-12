@@ -785,8 +785,9 @@ DASHBOARD_TEMPLATE = '''
             document.querySelectorAll('.nav-link').forEach(link => {
                 link.classList.remove('active');
             });
+            
             // 找到被點擊的連結並設為活動狀態
-            const clickedLink = document.querySelector('[onclick*="switchTab(\'' + tabName + '\')"]');
+            const clickedLink = document.querySelector(`[onclick*="switchTab('${tabName}')"]`);
             if (clickedLink) {
                 clickedLink.classList.add('active');
             }
@@ -795,7 +796,11 @@ DASHBOARD_TEMPLATE = '''
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.remove('active');
             });
-            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            const tabElement = document.getElementById(tabName + '-tab');
+            if (tabElement) {
+                tabElement.classList.add('active');
+            }
             
             currentTab = tabName;
             loadTabData(tabName);
