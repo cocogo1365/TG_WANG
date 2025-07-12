@@ -9,11 +9,16 @@ import json
 import sqlite3
 import hashlib
 import secrets
+import logging
 from datetime import datetime, timedelta
 from flask import Flask, render_template_string, request, redirect, url_for, session, jsonify, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 from database_adapter import DatabaseAdapter
+
+# 設置日誌
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
@@ -958,7 +963,7 @@ DASHBOARD_TEMPLATE = '''
                             '<button class="btn btn-success btn-sm" data-code="' + escapeHtml(code.code) + '" onclick="enableActivationCode(this.dataset.code)">恢復</button>' :
                             '<button class="btn btn-danger btn-sm" data-code="' + escapeHtml(code.code) + '" onclick="disableActivationCode(this.dataset.code)">停權</button>'
                         }
-                        <button class="btn btn-info btn-sm" data-code="${escapeHtml(code.code)}" onclick="viewCodeDetails(this.dataset.code)">詳情</button>
+                        <button class="btn btn-info btn-sm" data-code="` + escapeHtml(code.code) + `" onclick="viewCodeDetails(this.dataset.code)">詳情</button>
                     </td>
                 `;
                 tbody.appendChild(row);
@@ -1925,46 +1930,6 @@ def api_use_activation():
             "message": f"使用錯誤: {str(e)}"
         }), 500
 
-@app.route('/api/activation_codes', methods=['GET'])
-def api_get_activation_codes():
-    """API: 獲取所有激活碼"""
-    try:
-        # 檢查API密鑰
-        api_key = request.headers.get('X-API-Key')
-        if api_key != "tg-api-secure-key-2024":
-            return jsonify({
-                "success": False,
-                "message": "無效的API密鑰"
-            }), 401
-        
-        bot_data = get_bot_database()
-        activation_codes = bot_data.get('activation_codes', {})
-        
-        # 格式化激活碼列表
-        codes_list = []
-        for code, info in activation_codes.items():
-            codes_list.append({
-                "activation_code": code,
-                "plan_type": info['plan_type'],
-                "days": info['days'],
-                "created_at": info['created_at'],
-                "expires_at": info['expires_at'],
-                "used": info.get('used', False),
-                "used_at": info.get('used_at'),
-                "user_id": info.get('user_id')
-            })
-        
-        return jsonify({
-            "success": True,
-            "total": len(codes_list),
-            "codes": codes_list
-        })
-        
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": f"獲取錯誤: {str(e)}"
-        }), 500
 
 @app.route('/sync/activation_code', methods=['POST'])
 def sync_activation_code():
