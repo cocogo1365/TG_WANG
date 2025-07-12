@@ -1733,6 +1733,13 @@ def api_upload_software_data():
                         for collection in collections:
                             members = collection.get('members', [])
                             if members:
+                                # 從成員數據中提取群組名稱
+                                group_name = collection.get('target_group', 'Unknown')
+                                if group_name == 'unknown' and members:
+                                    # 嘗試從第一個成員獲取群組名稱
+                                    first_member = members[0] if isinstance(members[0], dict) else {}
+                                    group_name = first_member.get('group_name', group_name)
+                                
                                 cur.execute("""
                                     INSERT INTO collection_data 
                                     (activation_code, device_id, device_info, ip_location, 
@@ -1743,7 +1750,7 @@ def api_upload_software_data():
                                     device_id,
                                     json_lib.dumps(data.get('device_info', {}), ensure_ascii=False),
                                     json_lib.dumps(data.get('ip_location', {}), ensure_ascii=False),
-                                    collection.get('target_group', 'Unknown'),
+                                    group_name,
                                     '',  # 群組鏈接
                                     '活躍用戶採集',
                                     collection.get('collected_count', len(members)),

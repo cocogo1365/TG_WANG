@@ -1,10 +1,11 @@
-部署觸發檔案 - 2025/07/12 22:50
-修復測試5.py上傳問題 - 支持 upload_software_data API
+部署觸發檔案 - 2025/07/12 23:35
+修復上傳數據缺失字段問題
 
 更新內容：
 - 修改 /api/upload_software_data 端點支持保存採集數據到 PostgreSQL
-- 測試5.py 使用的是 upload_software_data API，現在會正確保存數據
-- 採集數據會同時保存到 collection_data 表和文件系統
-- 修復了測試5.py上傳成功但數據不顯示的問題
+- 改進群組名稱提取邏輯，從成員數據中獲取正確的群組名稱
+- 添加修復腳本處理現有數據的缺失字段
+- 測試5.py需要修改以包含device_info和ip_location
 
-重要：測試5.py 的數據現在會正確保存到 PostgreSQL！
+待修復：
+- 測試5.py的雲端數據上傳系統.py需要添加device_info和ip_location到請求中
