@@ -46,3 +46,5 @@ pandas==2.0.3
 
 # Database
 psycopg2-binary==2.9.9
+
+# 強制重新部署 - 2025/07/12
