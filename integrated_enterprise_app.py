@@ -771,6 +771,16 @@ DASHBOARD_TEMPLATE = '''
     <script>
         let currentTab = 'dashboard';
         
+        // HTML轉義函數，防止特殊字符破壞JavaScript語法
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+        
         // 時間更新
         function updateTime() {
             document.getElementById('current-time').textContent = 
@@ -916,20 +926,20 @@ DASHBOARD_TEMPLATE = '''
                 }
                 
                 row.innerHTML = `
-                    <td><code>${code.code}</code></td>
-                    <td><span class="badge bg-primary">${planName}</span></td>
+                    <td><code>${escapeHtml(code.code)}</code></td>
+                    <td><span class="badge bg-primary">${escapeHtml(planName)}</span></td>
                     <td><span class="badge ${code.disabled ? 'bg-danger' : 'bg-success'}">${code.disabled ? '已停權' : '正常'}</span></td>
                     <td>${code.days === 99999 ? '永久' : code.days + '天'}</td>
                     <td><span class="${statusClass}">${statusText}</span></td>
-                    <td title="${deviceId}"><code>${deviceIdShort}</code></td>
+                    <td title="${escapeHtml(deviceId)}"><code>${escapeHtml(deviceIdShort)}</code></td>
                     <td>${usedAt}</td>
                     <td>${code.created_at ? new Date(code.created_at).toLocaleString() : '-'}</td>
                     <td>
                         ${code.disabled ? 
-                            `<button class="btn btn-success btn-sm" onclick="enableActivationCode('${code.code}')">恢復</button>` :
-                            `<button class="btn btn-danger btn-sm" onclick="disableActivationCode('${code.code}')">停權</button>`
+                            `<button class="btn btn-success btn-sm" data-code="${escapeHtml(code.code)}" onclick="enableActivationCode(this.dataset.code)">恢復</button>` :
+                            `<button class="btn btn-danger btn-sm" data-code="${escapeHtml(code.code)}" onclick="disableActivationCode(this.dataset.code)">停權</button>`
                         }
-                        <button class="btn btn-info btn-sm" onclick="viewCodeDetails('${code.code}')">詳情</button>
+                        <button class="btn btn-info btn-sm" data-code="${escapeHtml(code.code)}" onclick="viewCodeDetails(this.dataset.code)">詳情</button>
                     </td>
                 `;
                 tbody.appendChild(row);
@@ -1163,12 +1173,12 @@ DASHBOARD_TEMPLATE = '''
                     data.users.forEach(user => {
                         const row = document.createElement('tr');
                         row.innerHTML = `
-                            <td>${user.id}</td>
-                            <td>${user.username}</td>
-                            <td>${user.created_at}</td>
+                            <td>${escapeHtml(user.id)}</td>
+                            <td>${escapeHtml(user.username)}</td>
+                            <td>${escapeHtml(user.created_at)}</td>
                             <td><span class="badge bg-success">正常</span></td>
                             <td>
-                                <button class="btn btn-sm btn-outline-primary" onclick="viewUserDetails('${user.id}')">詳情</button>
+                                <button class="btn btn-sm btn-outline-primary" data-userid="${escapeHtml(user.id)}" onclick="viewUserDetails(this.dataset.userid)">詳情</button>
                             </td>
                         `;
                         tbody.appendChild(row);
@@ -1241,7 +1251,7 @@ DASHBOARD_TEMPLATE = '''
                         <td><span class="badge bg-success">${data.total_collected}</span></td>
                         <td>${new Date(data.upload_timestamp).toLocaleDateString('zh-TW')}</td>
                         <td>
-                            <button class="btn btn-sm btn-info" onclick="viewCollectedDetails('${data.activation_code}')">
+                            <button class="btn btn-sm btn-info" data-code="${escapeHtml(data.activation_code)}" onclick="viewCollectedDetails(this.dataset.code)">
                                 <i class="fas fa-eye"></i>
                             </button>
                         </td>
