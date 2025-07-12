@@ -1671,7 +1671,7 @@ def api_enable_activation_code():
 
 @app.route('/api/upload_software_data', methods=['POST'])
 def api_upload_software_data():
-    """接收軟件上傳的數據API"""
+    """接收軟件上傳的數據API（支持PostgreSQL存儲採集數據）"""
     try:
         # 檢查API密鑰
         api_key = request.headers.get('X-API-Key')
@@ -1709,7 +1709,57 @@ def api_upload_software_data():
             'status': software_data.get('status', 'running')
         }
         
-        # 保存到上傳數據目錄
+        # 如果有採集數據，同時保存到 PostgreSQL 的 collection_data 表
+        collections = software_data.get('collections', [])
+        if collections:
+            db_url = os.environ.get('DATABASE_URL')
+            if db_url:
+                try:
+                    import psycopg2
+                    import json as json_lib
+                    
+                    conn = psycopg2.connect(db_url)
+                    cur = conn.cursor()
+                    
+                    # 檢查表是否存在
+                    cur.execute("""
+                        SELECT EXISTS (
+                            SELECT 1 FROM information_schema.tables 
+                            WHERE table_name = 'collection_data'
+                        )
+                    """)
+                    if cur.fetchone()[0]:
+                        # 保存每個採集記錄
+                        for collection in collections:
+                            members = collection.get('members', [])
+                            if members:
+                                cur.execute("""
+                                    INSERT INTO collection_data 
+                                    (activation_code, device_id, device_info, ip_location, 
+                                     group_name, group_link, collection_method, members_count, members_data)
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                """, (
+                                    activation_code,
+                                    device_id,
+                                    json_lib.dumps(data.get('device_info', {}), ensure_ascii=False),
+                                    json_lib.dumps(data.get('ip_location', {}), ensure_ascii=False),
+                                    collection.get('target_group', 'Unknown'),
+                                    '',  # 群組鏈接
+                                    '活躍用戶採集',
+                                    collection.get('collected_count', len(members)),
+                                    json_lib.dumps(members, ensure_ascii=False)
+                                ))
+                        
+                        conn.commit()
+                        logger.info(f"成功保存 {len(collections)} 條採集記錄到 PostgreSQL")
+                    
+                    cur.close()
+                    conn.close()
+                    
+                except Exception as e:
+                    logger.error(f"保存到 PostgreSQL 失敗: {e}")
+        
+        # 保存到上傳數據目錄（作為備份）
         upload_file = os.path.join(UPLOAD_DATA_DIR, f"software_{device_id}_{int(datetime.now().timestamp())}.json")
         os.makedirs(UPLOAD_DATA_DIR, exist_ok=True)
         
