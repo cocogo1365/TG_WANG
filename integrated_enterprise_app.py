@@ -769,16 +769,35 @@ DASHBOARD_TEMPLATE = '''
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // 全局錯誤處理
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            console.error('JavaScript錯誤:', {
+                message: msg,
+                source: url,
+                lineno: lineNo,
+                colno: columnNo,
+                error: error
+            });
+            return false;
+        };
+        
         let currentTab = 'dashboard';
         
         // HTML轉義函數，防止特殊字符破壞JavaScript語法
         function escapeHtml(str) {
+            if (str === null || str === undefined) {
+                return '';
+            }
             return String(str)
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
+                .replace(/'/g, '&#39;')
+                .replace(/\r\n/g, ' ')
+                .replace(/\n/g, ' ')
+                .replace(/\r/g, ' ')
+                .replace(/\t/g, ' ');
         }
         
         // 時間更新
@@ -1030,8 +1049,8 @@ DASHBOARD_TEMPLATE = '''
                         <h5>激活碼詳情</h5>
                         <div class="row">
                             <div class="col-md-6">
-                                <p><strong>激活碼:</strong> <code>${codeInfo.code}</code></p>
-                                <p><strong>方案類型:</strong> <span class="badge bg-primary">${planName}</span></p>
+                                <p><strong>激活碼:</strong> <code>${escapeHtml(codeInfo.code)}</code></p>
+                                <p><strong>方案類型:</strong> <span class="badge bg-primary">${escapeHtml(planName)}</span></p>
                                 <p><strong>有效期:</strong> ${codeInfo.days === 99999 ? '永久' : codeInfo.days + '天'}</p>
                                 <p><strong>狀態:</strong> <span class="badge ${codeInfo.disabled ? 'bg-danger' : 'bg-success'}">${codeInfo.disabled ? '已停權' : '正常'}</span></p>
                                 <p><strong>使用狀態:</strong> <span class="badge ${codeInfo.used ? 'bg-warning' : 'bg-success'}">${codeInfo.used ? '已使用' : '未使用'}</span></p>
@@ -1040,8 +1059,8 @@ DASHBOARD_TEMPLATE = '''
                                 <p><strong>創建時間:</strong> ${codeInfo.created_at ? new Date(codeInfo.created_at).toLocaleString() : '-'}</p>
                                 <p><strong>使用時間:</strong> ${codeInfo.used_at ? new Date(codeInfo.used_at).toLocaleString() : '-'}</p>
                                 <p><strong>到期時間:</strong> ${codeInfo.expires_at ? new Date(codeInfo.expires_at).toLocaleString() : '-'}</p>
-                                <p><strong>設備ID:</strong> <code>${codeInfo.used_by_device || '-'}</code></p>
-                                <p><strong>用戶ID:</strong> ${codeInfo.user_id || '-'}</p>
+                                <p><strong>設備ID:</strong> <code>${escapeHtml(codeInfo.used_by_device || '-')}</code></p>
+                                <p><strong>用戶ID:</strong> ${escapeHtml(codeInfo.user_id || '-')}</p>
                             </div>
                         </div>
                         ${codeInfo.disabled ? 
@@ -1198,15 +1217,15 @@ DASHBOARD_TEMPLATE = '''
             orders.forEach(order => {
                 const row = `
                     <tr>
-                        <td><code>${order.order_id}</code></td>
-                        <td>${order.user_id}</td>
-                        <td><span class="badge bg-primary">${order.plan_type_chinese}</span></td>
-                        <td>${order.amount}</td>
-                        <td>${order.currency}</td>
+                        <td><code>${escapeHtml(order.order_id)}</code></td>
+                        <td>${escapeHtml(order.user_id)}</td>
+                        <td><span class="badge bg-primary">${escapeHtml(order.plan_type_chinese || '')}</span></td>
+                        <td>${escapeHtml(order.amount)}</td>
+                        <td>${escapeHtml(order.currency)}</td>
                         <td><span class="badge ${order.status === 'paid' ? 'status-paid' : 'status-pending'}">${order.status === 'paid' ? '已付款' : '待付款'}</span></td>
-                        <td><small><code>${order.tx_hash ? order.tx_hash.slice(0, 16) + '...' : 'N/A'}</code></small></td>
-                        <td>${new Date(order.created_at).toLocaleDateString('zh-TW')}</td>
-                        <td>${new Date(order.expires_at).toLocaleDateString('zh-TW')}</td>
+                        <td><small><code>${order.tx_hash ? escapeHtml(order.tx_hash.slice(0, 16)) + '...' : 'N/A'}</code></small></td>
+                        <td>${order.created_at ? new Date(order.created_at).toLocaleDateString('zh-TW') : '-'}</td>
+                        <td>${order.expires_at ? new Date(order.expires_at).toLocaleDateString('zh-TW') : '-'}</td>
                     </tr>
                 `;
                 tbody.innerHTML += row;
@@ -1221,12 +1240,12 @@ DASHBOARD_TEMPLATE = '''
             collectedData.forEach(data => {
                 const row = `
                     <tr>
-                        <td><code>${data.activation_code}</code></td>
-                        <td><small>${data.device_info}</small></td>
-                        <td>${data.collection_method}</td>
-                        <td>${data.target_groups}</td>
-                        <td><span class="badge bg-success">${data.total_collected}</span></td>
-                        <td>${new Date(data.upload_timestamp).toLocaleDateString('zh-TW')}</td>
+                        <td><code>${escapeHtml(data.activation_code)}</code></td>
+                        <td><small>${escapeHtml(data.device_info || '')}</small></td>
+                        <td>${escapeHtml(data.collection_method || '')}</td>
+                        <td>${escapeHtml(data.target_groups || '')}</td>
+                        <td><span class="badge bg-success">${escapeHtml(data.total_collected || '0')}</span></td>
+                        <td>${data.upload_timestamp ? new Date(data.upload_timestamp).toLocaleDateString('zh-TW') : '-'}</td>
                         <td>
                             <button class="btn btn-sm btn-info" data-code="${escapeHtml(data.activation_code)}" onclick="viewCollectedDetails(this.dataset.code)">
                                 <i class="fas fa-eye"></i>
