@@ -658,6 +658,74 @@ DASHBOARD_TEMPLATE = '''
                 </div>
             </div>
         </div>
+        
+        <!-- 安全設置 -->
+        <div id="security-tab" class="tab-content">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3><i class="fas fa-shield-alt me-2"></i>安全設置</h3>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">系統安全</h5>
+                            <p class="text-muted">管理系統安全設置和權限控制</p>
+                            <button class="btn btn-primary" onclick="showSecuritySettings()">配置安全設置</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">登入記錄</h5>
+                            <p class="text-muted">查看系統登入記錄和異常活動</p>
+                            <button class="btn btn-primary" onclick="showLoginLogs()">查看記錄</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 報表分析 -->
+        <div id="reports-tab" class="tab-content">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3><i class="fas fa-chart-line me-2"></i>報表分析</h3>
+                <button class="btn btn-primary" onclick="exportReport()">
+                    <i class="fas fa-download me-1"></i>導出報表
+                </button>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">銷售報表</h5>
+                            <p class="text-muted">查看銷售數據和趨勢分析</p>
+                            <button class="btn btn-outline-primary" onclick="generateSalesReport()">生成報表</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">用戶報表</h5>
+                            <p class="text-muted">分析用戶行為和增長趨勢</p>
+                            <button class="btn btn-outline-primary" onclick="generateUserReport()">生成報表</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">財務報表</h5>
+                            <p class="text-muted">收入支出和財務狀況分析</p>
+                            <button class="btn btn-outline-primary" onclick="generateFinanceReport()">生成報表</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
         {% endif %}
     </div>
 
@@ -679,13 +747,22 @@ DASHBOARD_TEMPLATE = '''
             document.querySelectorAll('.nav-link').forEach(link => {
                 link.classList.remove('active');
             });
-            event.target.classList.add('active');
+            
+            // 根據 tabName 找到對應的連結並設置為 active
+            const activeLink = document.querySelector(`[onclick*="switchTab('${tabName}')"]`);
+            if (activeLink) {
+                activeLink.classList.add('active');
+            }
             
             // 更新內容顯示
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.remove('active');
             });
-            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            const tabElement = document.getElementById(tabName + '-tab');
+            if (tabElement) {
+                tabElement.classList.add('active');
+            }
             
             currentTab = tabName;
             loadTabData(tabName);
@@ -709,6 +786,12 @@ DASHBOARD_TEMPLATE = '''
                         break;
                     case 'agents':
                         await loadAgentsData();
+                        break;
+                    case 'security':
+                        // 安全設置頁面不需要載入數據
+                        break;
+                    case 'reports':
+                        // 報表頁面不需要載入數據
                         break;
                 }
             } catch (error) {
