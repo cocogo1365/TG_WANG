@@ -1414,16 +1414,32 @@ def api_collected_data():
         
         for data in uploaded_data:
             device_info = data.get('device_info', {})
-            collection_info = data.get('collection_info', {})
             
-            collected_data.append({
-                'activation_code': data.get('activation_code'),
-                'device_info': f"{device_info.get('hostname', 'N/A')} ({device_info.get('platform', 'N/A')})",
-                'collection_method': collection_info.get('collection_method', 'N/A'),
-                'target_groups': ', '.join(collection_info.get('target_groups', [])),
-                'total_collected': collection_info.get('total_collected', 0),
-                'upload_timestamp': data.get('upload_timestamp')
-            })
+            # 支援兩種數據格式：collection_info 和 collections
+            collection_info = data.get('collection_info', {})
+            collections = data.get('collections', [])
+            
+            # 如果是新格式（collections數組）
+            if collections and isinstance(collections, list):
+                for collection in collections:
+                    collected_data.append({
+                        'activation_code': data.get('activation_code'),
+                        'device_info': f"{device_info.get('hostname', 'N/A')} ({device_info.get('platform', 'N/A')})",
+                        'collection_method': collection.get('method', '活躍用戶採集'),
+                        'target_groups': collection.get('group_name', collection.get('target', 'N/A')),
+                        'total_collected': collection.get('members_count', collection.get('total', 0)),
+                        'upload_timestamp': collection.get('timestamp', data.get('upload_time', data.get('upload_timestamp')))
+                    })
+            # 如果是舊格式（collection_info對象）
+            else:
+                collected_data.append({
+                    'activation_code': data.get('activation_code'),
+                    'device_info': f"{device_info.get('hostname', 'N/A')} ({device_info.get('platform', 'N/A')})",
+                    'collection_method': collection_info.get('collection_method', 'N/A'),
+                    'target_groups': ', '.join(collection_info.get('target_groups', [])),
+                    'total_collected': collection_info.get('total_collected', 0),
+                    'upload_timestamp': data.get('upload_timestamp')
+                })
         
         # 按上傳時間排序
         collected_data.sort(key=lambda x: x['upload_timestamp'], reverse=True)
@@ -1629,6 +1645,60 @@ def api_upload_software_data():
         })
         
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/upload_collection_data', methods=['POST'])
+def api_upload_collection_data():
+    """接收採集數據上傳API（新版本）"""
+    try:
+        # 檢查API密鑰（可選）
+        api_key = request.headers.get('X-API-Key')
+        
+        data = request.get_json()
+        activation_code = data.get('activation_code')
+        device_id = data.get('device_id')
+        members_data = data.get('members', [])
+        group_info = data.get('group_info', {})
+        
+        if not activation_code:
+            return jsonify({'error': '缺少激活碼'}), 400
+        
+        # 驗證激活碼
+        code_info = db_adapter.get_activation_code(activation_code)
+        if not code_info:
+            return jsonify({'error': '激活碼不存在'}), 404
+        
+        # 構建採集記錄
+        collection_record = {
+            'activation_code': activation_code,
+            'device_id': device_id or 'unknown',
+            'device_info': data.get('device_info', {}),
+            'ip_location': data.get('ip_location', {}),
+            'upload_time': datetime.now().isoformat(),
+            'collections': [{
+                'group_name': group_info.get('name', 'Unknown'),
+                'group_link': group_info.get('link', ''),
+                'method': '活躍用戶採集',
+                'members_count': len(members_data),
+                'members': members_data,
+                'timestamp': datetime.now().isoformat()
+            }]
+        }
+        
+        # 保存到上傳數據目錄
+        upload_file = os.path.join(UPLOAD_DATA_DIR, f"collection_{activation_code}_{int(datetime.now().timestamp())}.json")
+        os.makedirs(UPLOAD_DATA_DIR, exist_ok=True)
+        
+        with open(upload_file, 'w', encoding='utf-8') as f:
+            json.dump(collection_record, f, ensure_ascii=False, indent=2)
+        
+        return jsonify({
+            'success': True,
+            'message': f'成功上傳 {len(members_data)} 個成員數據'
+        })
+        
+    except Exception as e:
+        logger.error(f"上傳採集數據失敗: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/sync_activation_code', methods=['POST'])
