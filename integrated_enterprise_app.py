@@ -474,23 +474,23 @@ DASHBOARD_TEMPLATE = '''
     <!-- 側邊欄 -->
     <div class="sidebar">
         <div class="nav flex-column pt-3">
-            <a class="nav-link active" href="#" onclick="switchTab('dashboard'); return false;">
+            <a class="nav-link active" href="javascript:void(0)" onclick="switchTab('dashboard')">
                 <i class="fas fa-tachometer-alt me-2"></i>儀表板
             </a>
-            <a class="nav-link" href="#" onclick="switchTab('orders'); return false;">
+            <a class="nav-link" href="javascript:void(0)" onclick="switchTab('orders')">
                 <i class="fas fa-shopping-cart me-2"></i>TG機器人訂單
             </a>
-            <a class="nav-link" href="#" onclick="switchTab('activations'); return false;">
+            <a class="nav-link" href="javascript:void(0)" onclick="switchTab('activations')">
                 <i class="fas fa-key me-2"></i>激活碼管理
             </a>
-            <a class="nav-link" href="#" onclick="switchTab('collected-data'); return false;">
+            <a class="nav-link" href="javascript:void(0)" onclick="switchTab('collected-data')">
                 <i class="fas fa-database me-2"></i>採集數據
             </a>
             {% if 'all' in permissions %}
-            <a class="nav-link" href="#" onclick="switchTab('statistics'); return false;">
+            <a class="nav-link" href="javascript:void(0)" onclick="switchTab('statistics')">
                 <i class="fas fa-chart-pie me-2"></i>統計分析
             </a>
-            <a class="nav-link" href="#" onclick="switchTab('users'); return false;">
+            <a class="nav-link" href="javascript:void(0)" onclick="switchTab('users')">
                 <i class="fas fa-users me-2"></i>用戶管理
             </a>
             {% endif %}
