@@ -794,10 +794,10 @@ DASHBOARD_TEMPLATE = '''
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#39;')
-                .replace(/\r\n/g, ' ')
-                .replace(/\n/g, ' ')
-                .replace(/\r/g, ' ')
-                .replace(/\t/g, ' ');
+                .replace(/\\r\\n/g, ' ')
+                .replace(/\\n/g, ' ')
+                .replace(/\\r/g, ' ')
+                .replace(/\\t/g, ' ');
         }
         
         // 時間更新
