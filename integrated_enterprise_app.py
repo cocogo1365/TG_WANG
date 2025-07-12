@@ -936,8 +936,8 @@ DASHBOARD_TEMPLATE = '''
                     <td>${code.created_at ? new Date(code.created_at).toLocaleString() : '-'}</td>
                     <td>
                         ${code.disabled ? 
-                            `<button class="btn btn-success btn-sm" data-code="${escapeHtml(code.code)}" onclick="enableActivationCode(this.dataset.code)">恢復</button>` :
-                            `<button class="btn btn-danger btn-sm" data-code="${escapeHtml(code.code)}" onclick="disableActivationCode(this.dataset.code)">停權</button>`
+                            '<button class="btn btn-success btn-sm" data-code="' + escapeHtml(code.code) + '" onclick="enableActivationCode(this.dataset.code)">恢復</button>' :
+                            '<button class="btn btn-danger btn-sm" data-code="' + escapeHtml(code.code) + '" onclick="disableActivationCode(this.dataset.code)">停權</button>'
                         }
                         <button class="btn btn-info btn-sm" data-code="${escapeHtml(code.code)}" onclick="viewCodeDetails(this.dataset.code)">詳情</button>
                     </td>
@@ -1044,14 +1044,14 @@ DASHBOARD_TEMPLATE = '''
                                 <p><strong>用戶ID:</strong> ${codeInfo.user_id || '-'}</p>
                             </div>
                         </div>
-                        ${codeInfo.disabled ? `
-                            <div class="alert alert-danger">
-                                <strong>停權信息:</strong><br>
-                                停權時間: ${codeInfo.disabled_at ? new Date(codeInfo.disabled_at).toLocaleString() : '-'}<br>
-                                停權原因: ${codeInfo.disabled_reason || '-'}<br>
-                                操作者: ${codeInfo.disabled_by || '-'}
-                            </div>
-                        ` : ''}
+                        ${codeInfo.disabled ? 
+                            '<div class="alert alert-danger">' +
+                                '<strong>停權信息:</strong><br>' +
+                                '停權時間: ' + (codeInfo.disabled_at ? new Date(codeInfo.disabled_at).toLocaleString() : '-') + '<br>' +
+                                '停權原因: ' + (codeInfo.disabled_reason || '-') + '<br>' +
+                                '操作者: ' + (codeInfo.disabled_by || '-') +
+                            '</div>'
+                        : ''}
                     `;
                     
                     // 顯示模態框
@@ -1213,29 +1213,6 @@ DASHBOARD_TEMPLATE = '''
             });
         }
         
-        // 更新激活碼表格
-        function updateActivationsTable(activations) {
-            const tbody = document.getElementById('activations-tbody');
-            tbody.innerHTML = '';
-            
-            activations.forEach(activation => {
-                const row = `
-                    <tr>
-                        <td><code>${activation.activation_code}</code></td>
-                        <td><span class="badge bg-info">${activation.plan_type_chinese}</span></td>
-                        <td>${activation.user_id}</td>
-                        <td>${activation.order_id || 'N/A'}</td>
-                        <td>${activation.days}</td>
-                        <td><span class="badge ${activation.used ? 'status-used' : 'status-active'}">${activation.used ? '已使用' : '未使用'}</span></td>
-                        <td>${new Date(activation.created_at).toLocaleDateString('zh-TW')}</td>
-                        <td>${new Date(activation.expires_at).toLocaleDateString('zh-TW')}</td>
-                        <td>${activation.used_by_device ? activation.used_by_device.slice(0, 12) + '...' : 'N/A'}</td>
-                    </tr>
-                `;
-                tbody.innerHTML += row;
-            });
-        }
-        
         // 更新採集數據表格
         function updateCollectedDataTable(collectedData) {
             const tbody = document.getElementById('collected-data-tbody');
@@ -1266,21 +1243,16 @@ DASHBOARD_TEMPLATE = '''
             loadOrdersData();
         }
         
-        function refreshActivations() {
-            loadActivationsData();
-        }
-        
         function refreshCollectedData() {
             loadCollectedData();
         }
         
-        function searchActivations() {
-            const searchTerm = document.getElementById('activation-search').value;
-            alert('搜索激活碼: ' + searchTerm);
-        }
-        
         function viewCollectedDetails(activationCode) {
             alert('查看採集詳情: ' + activationCode);
+        }
+        
+        function viewUserDetails(userId) {
+            alert('查看用戶詳情: ' + userId);
         }
         
         // 初始化
