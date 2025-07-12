@@ -202,52 +202,82 @@ LOGIN_TEMPLATE = '''
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TG旺企業管理系統</title>
+    <title>TG旺企業管理系統 - 登入</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1f1c2c 0%, #928dab 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         .login-card {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(15px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
             overflow: hidden;
-            max-width: 400px;
+            max-width: 420px;
             width: 100%;
+            border: 1px solid rgba(255,255,255,0.3);
         }
         .login-header {
-            background: linear-gradient(45deg, #667eea, #764ba2);
+            background: linear-gradient(45deg, #12c2e9, #c471ed, #f64f59);
             color: white;
-            padding: 30px;
+            padding: 40px;
             text-align: center;
         }
         .login-body {
-            padding: 30px;
+            padding: 35px;
         }
         .logo-icon {
-            font-size: 48px;
-            margin-bottom: 15px;
+            font-size: 60px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
         .btn-primary {
-            background: linear-gradient(45deg, #667eea, #764ba2);
+            background: linear-gradient(45deg, #12c2e9, #c471ed, #f64f59);
             border: none;
-            padding: 12px;
-            font-weight: 600;
+            padding: 14px;
+            font-weight: 700;
+            transition: transform 0.3s;
+        }
+        .btn-primary:hover {
+            transform: scale(1.05);
         }
         .form-control {
-            border-radius: 8px;
-            padding: 12px;
-            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 14px;
+            border: none;
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+        .form-control::placeholder {
+            color: #ddd;
         }
         .form-control:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+            box-shadow: 0 0 15px rgba(255,255,255,0.5);
+        }
+        .form-label {
+            color: white;
+        }
+        .alert-danger {
+            background: rgba(220, 53, 69, 0.2);
+            border: 1px solid rgba(220, 53, 69, 0.5);
+            color: white;
+            backdrop-filter: blur(5px);
+        }
+        .alert-info {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            backdrop-filter: blur(5px);
+        }
+        small.text-muted {
+            color: rgba(255,255,255,0.6) !important;
         }
     </style>
 </head>
@@ -266,13 +296,13 @@ LOGIN_TEMPLATE = '''
                     <label class="form-label">
                         <i class="fas fa-user me-2"></i>帳號
                     </label>
-                    <input type="text" name="username" class="form-control" required>
+                    <input type="text" name="username" class="form-control" placeholder="請輸入帳號" required>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">
                         <i class="fas fa-lock me-2"></i>密碼
                     </label>
-                    <input type="password" name="password" class="form-control" required>
+                    <input type="password" name="password" class="form-control" placeholder="請輸入密碼" required>
                 </div>
                 <button type="submit" class="btn btn-primary w-100">
                     <i class="fas fa-sign-in-alt me-2"></i>登入
@@ -281,6 +311,10 @@ LOGIN_TEMPLATE = '''
             {% if error %}
             <div class="alert alert-danger mt-3">
                 <i class="fas fa-exclamation-triangle me-2"></i>{{ error }}
+            </div>
+            {% else %}
+            <div class="alert alert-info mt-3">
+                <i class="fas fa-info-circle me-2"></i>請輸入您的登入資訊
             </div>
             {% endif %}
             <div class="mt-4 text-center">
