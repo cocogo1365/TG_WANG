@@ -926,10 +926,10 @@ DASHBOARD_TEMPLATE = '''
                     <td>${code.created_at ? new Date(code.created_at).toLocaleString() : '-'}</td>
                     <td>
                         ${code.disabled ? 
-                            '<button class="btn btn-success btn-sm" onclick="enableActivationCode(\'' + code.code + '\')">恢復</button>' :
-                            '<button class="btn btn-danger btn-sm" onclick="disableActivationCode(\'' + code.code + '\')">停權</button>'
+                            `<button class="btn btn-success btn-sm" onclick="enableActivationCode('${code.code}')">恢復</button>` :
+                            `<button class="btn btn-danger btn-sm" onclick="disableActivationCode('${code.code}')">停權</button>`
                         }
-                        <button class="btn btn-info btn-sm" onclick="viewCodeDetails(\'' + code.code + '\')">詳情</button>
+                        <button class="btn btn-info btn-sm" onclick="viewCodeDetails('${code.code}')">詳情</button>
                     </td>
                 `;
                 tbody.appendChild(row);
