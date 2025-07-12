@@ -411,28 +411,28 @@ DASHBOARD_TEMPLATE = '''
     <!-- 側邊欄 -->
     <div class="sidebar">
         <div class="nav flex-column pt-3">
-            <a class="nav-link active" href="#" onclick="switchTab('dashboard')">
+            <a class="nav-link active" href="javascript:void(0)" onclick="switchTab('dashboard')">
                 <i class="fas fa-tachometer-alt me-2"></i>儀表板
             </a>
-            <a class="nav-link" href="#" onclick="switchTab('revenue')">
+            <a class="nav-link" href="javascript:void(0)" onclick="switchTab('revenue')">
                 <i class="fas fa-chart-line me-2"></i>收入統計
             </a>
-            <a class="nav-link" href="#" onclick="switchTab('customers')">
+            <a class="nav-link" href="javascript:void(0)" onclick="switchTab('customers')">
                 <i class="fas fa-users me-2"></i>客戶管理
             </a>
             {% if 'users' in permissions %}
-            <a class="nav-link" href="#" onclick="switchTab('users')">
+            <a class="nav-link" href="javascript:void(0)" onclick="switchTab('users')">
                 <i class="fas fa-user-shield me-2"></i>用戶狀態
             </a>
             {% endif %}
             {% if 'all' in permissions %}
-            <a class="nav-link" href="#" onclick="switchTab('agents')">
+            <a class="nav-link" href="javascript:void(0)" onclick="switchTab('agents')">
                 <i class="fas fa-handshake me-2"></i>代理業務
             </a>
-            <a class="nav-link" href="#" onclick="switchTab('security')">
+            <a class="nav-link" href="javascript:void(0)" onclick="switchTab('security')">
                 <i class="fas fa-shield-alt me-2"></i>安全監控
             </a>
-            <a class="nav-link" href="#" onclick="switchTab('reports')">
+            <a class="nav-link" href="javascript:void(0)" onclick="switchTab('reports')">
                 <i class="fas fa-file-chart me-2"></i>報告中心
             </a>
             {% endif %}
