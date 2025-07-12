@@ -1144,7 +1144,7 @@ DASHBOARD_TEMPLATE = '''
             });
             
             // 創建並下載CSV文件
-            const blob = new Blob([csvContent.join('\n')], { type: 'text/csv;charset=utf-8;' });
+            const blob = new Blob([csvContent.join('\\n')], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             const url = URL.createObjectURL(blob);
             link.setAttribute('href', url);
