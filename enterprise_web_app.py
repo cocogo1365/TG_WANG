@@ -973,6 +973,30 @@ DASHBOARD_TEMPLATE = '''
                 </div>
             </div>
             
+            <!-- 用戶管理微笑按鈕區域 -->
+            <div class="text-center mb-4">
+                <button class="btn btn-lg" onclick="userSmileAction()" style="
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    border: none;
+                    padding: 15px 40px;
+                    border-radius: 50px;
+                    font-size: 20px;
+                    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+                    transition: all 0.3s ease;
+                    ">
+                    <span id="userSmileEmoji">😊</span> 給用戶一個微笑
+                </button>
+                <div id="userSmileMessage" style="
+                    margin-top: 10px;
+                    font-size: 16px;
+                    color: #667eea;
+                    font-weight: bold;
+                    opacity: 0;
+                    transition: opacity 0.3s ease;
+                    "></div>
+            </div>
+            
             <div class="data-table">
                 <div class="table-responsive">
                     <table class="table table-hover">
@@ -1442,6 +1466,7 @@ DASHBOARD_TEMPLATE = '''
         function viewUser(code) { alert('查看用戶: ' + code); }
         function addUser() { alert('新增用戶功能開發中...'); }
         function exportUsers() { alert('導出用戶數據功能開發中...'); }
+        function autobanSettings() { alert('自動停權設置功能開發中...'); }
         
         // 代理管理功能
         function viewAgent(id) { alert('查看代理: ' + id); }
@@ -1457,6 +1482,166 @@ DASHBOARD_TEMPLATE = '''
         function generateSalesReport() { alert('生成銷售報表功能開發中...'); }
         function generateUserReport() { alert('生成用戶報表功能開發中...'); }
         function generateFinanceReport() { alert('生成財務報表功能開發中...'); }
+        
+        // 用戶管理微笑按鈕功能
+        function userSmileAction() {
+            const emojis = ['😊', '😄', '🥰', '😁', '🤗', '✨', '💖', '😇', '🌟'];
+            const messages = [
+                '已向所有用戶發送微笑！',
+                '用戶感受到了您的關懷！',
+                '微笑能量傳遞中...', 
+                '用戶體驗提升了！',
+                '您的微笑讓用戶更開心！',
+                '正能量已送達！',
+                '用戶滿意度 +100！',
+                '微笑是最好的服務！'
+            ];
+            
+            // 獲取元素
+            const emojiElement = document.getElementById('userSmileEmoji');
+            const messageElement = document.getElementById('userSmileMessage');
+            const button = event.target.closest('button');
+            
+            // 隨機選擇表情和訊息
+            const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+            const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+            
+            // 更新表情
+            emojiElement.textContent = randomEmoji;
+            
+            // 按鈕動畫
+            button.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                button.style.transform = 'scale(1)';
+            }, 200);
+            
+            // 顯示訊息
+            messageElement.textContent = randomMessage;
+            messageElement.style.opacity = '1';
+            
+            // 創建飄浮效果
+            createUserSmileFloats();
+            
+            // 如果在用戶管理頁面，更新表格顯示微笑效果
+            if (currentTab === 'users') {
+                flashUserTableRows();
+            }
+            
+            // 3秒後隱藏訊息並恢復原始表情
+            setTimeout(() => {
+                messageElement.style.opacity = '0';
+                emojiElement.textContent = '😊';
+            }, 3000);
+        }
+        
+        // 創建飄浮的微笑
+        function createUserSmileFloats() {
+            const floatEmojis = ['😊', '💖', '✨', '🌟'];
+            const container = document.querySelector('#users-tab');
+            
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => {
+                    const floatEl = document.createElement('div');
+                    floatEl.textContent = floatEmojis[Math.floor(Math.random() * floatEmojis.length)];
+                    floatEl.style.cssText = `
+                        position: absolute;
+                        left: ${20 + Math.random() * 60}%;
+                        top: 200px;
+                        font-size: 30px;
+                        z-index: 100;
+                        pointer-events: none;
+                        animation: userFloatUp 3s ease-out forwards;
+                    `;
+                    container.appendChild(floatEl);
+                    
+                    setTimeout(() => {
+                        floatEl.remove();
+                    }, 3000);
+                }, i * 200);
+            }
+        }
+        
+        // 讓用戶表格行閃爍微笑效果
+        function flashUserTableRows() {
+            const rows = document.querySelectorAll('#users-tbody tr');
+            rows.forEach((row, index) => {
+                setTimeout(() => {
+                    const originalBg = row.style.backgroundColor;
+                    row.style.backgroundColor = 'rgba(102, 126, 234, 0.1)';
+                    row.style.transition = 'background-color 0.5s ease';
+                    
+                    // 在每行末尾添加臨時微笑
+                    const smileCell = document.createElement('td');
+                    smileCell.textContent = '😊';
+                    smileCell.style.fontSize = '20px';
+                    smileCell.style.opacity = '0';
+                    smileCell.style.transition = 'opacity 0.3s ease';
+                    row.appendChild(smileCell);
+                    
+                    setTimeout(() => {
+                        smileCell.style.opacity = '1';
+                    }, 100);
+                    
+                    setTimeout(() => {
+                        row.style.backgroundColor = originalBg;
+                        smileCell.style.opacity = '0';
+                        setTimeout(() => {
+                            smileCell.remove();
+                        }, 300);
+                    }, 1500);
+                }, index * 100);
+            });
+        }
+        
+        // 添加用戶管理微笑動畫樣式
+        const userSmileStyle = document.createElement('style');
+        userSmileStyle.textContent = `
+            @keyframes userFloatUp {
+                0% {
+                    opacity: 1;
+                    transform: translateY(0) rotate(0deg);
+                }
+                100% {
+                    opacity: 0;
+                    transform: translateY(-200px) rotate(360deg);
+                }
+            }
+            
+            #users-tab button[onclick="userSmileAction()"]:hover {
+                transform: scale(1.05);
+                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+            }
+            
+            #users-tab button[onclick="userSmileAction()"]:active {
+                transform: scale(0.95);
+            }
+        `;
+        document.head.appendChild(userSmileStyle);
+        
+        // 刷新用戶數據功能增強
+        function refreshUsers() {
+            // 原有的刷新邏輯
+            loadUsersData();
+            
+            // 添加刷新動畫
+            const refreshBtn = event.target.closest('button');
+            const icon = refreshBtn.querySelector('i');
+            icon.style.animation = 'spin 1s linear';
+            
+            setTimeout(() => {
+                icon.style.animation = '';
+            }, 1000);
+        }
+        
+        // 添加旋轉動畫
+        const spinStyle = document.createElement('style');
+        spinStyle.textContent = `
+            @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(spinStyle);
         
         // 初始化
         window.onload = function() {
